@@ -16,7 +16,7 @@ Prérequis : Docker Desktop lancé, `psql` dans le PATH. **Aucun accès à la pr
 
 ```bash
 npm run base:monter    # pile locale (supabase-local/, ports 445xx) + schéma + vérifs + semis
-npm run base:tester    # escalade.mjs, sonde-rls.mjs, stockage.mjs, tests/integration/*.mjs, puis un bilan
+npm run base:tester    # sondes, tests/integration/*.mjs, triggers-ot.sql, audit-sql.mjs, edge-functions.mjs, puis un bilan
 npm run base:demonter  # supabase stop --no-backup : la pile et ses données sont jetées
 ```
 
@@ -32,7 +32,8 @@ npm run base:demonter  # supabase stop --no-backup : la pile et ses données son
 4. vérifie le trigger `on_auth_user_created` sur `auth.users`, le bucket `documents`,
    les 5 policies de `storage.objects`, les lignes de `statuts_di`, et l'absence de
    secret Dmbook dans le coffre (sans lui, `dmbook_appeler()` n'appelle jamais la prod) ;
-5. lance `semis.mjs` (2 sites, 7 comptes couvrant les 5 rôles, données en miroir).
+5. lance `semis.mjs` (2 sites, 7 comptes couvrant les 5 rôles, données en miroir),
+   puis `semis-ot.sql` (gamme périodique du site A et son premier OT planifié).
 
 Le script refuse tout argument CLI qui viserait la prod (`--linked`, `--project-ref`,
 `login`, `link`, `dump`) et toute adresse autre que `127.0.0.1`/`localhost`.
@@ -75,15 +76,24 @@ node stockage.mjs          # un site peut-il télécharger le document d'un autr
 
 `semis.mjs` est à rejouer après chaque remontage ; il réécrit `seed-data.json`.
 
-`edge-functions.mjs` n'est **pas** lancée par `base:tester` : elle exige que les
-fonctions soient servies, avec la vérification de jeton **désactivée** — c'est
-volontaire : on veut tester ce que le code contrôle lui-même, pas ce que la
-plateforme filtre en amont. Les fonctions vivent dans `supabase/functions/` (hors de
-la pile locale) ; leur service local reste à outiller.
+`base:tester` joue aussi, après les sondes et les tests d'intégration :
 
-```bash
-npx supabase functions serve --no-verify-jwt
-```
+- **`triggers-ot.sql`** (psql, transaction toujours annulée) : cycle de vie d'un OT
+  calculé par la base (en cours → clôturé + OT suivant → annulé) sur l'OT posé par
+  `semis-ot.sql`. Il refuse de tourner sur une base non semée — jamais la prod.
+- **`audit-sql.mjs`** (lecture seule du catalogue + texte de `schema_complete.sql`
+  et, s'il existe, de `migrations/`) : RLS, WITH CHECK, cloisonnement par site,
+  helpers `public.`, `search_path` des DEFINER, références non qualifiées, vues
+  `security_invoker`, commentaires, idempotence, `deleted_at`, FK, EXECUTE d'anon,
+  doublons. Cliquet : les écarts acceptés vivent dans `audit-sql-exceptions.json`
+  avec leur motif ; un écart nouveau ou une exception périmée est bloquant.
+  `node audit-sql.mjs --geler` réécrit la liste (motif « À MOTIVER » à remplir).
+- **`edge-functions.mjs`** : les fonctions du dépôt sont servies le temps de la
+  sonde (`supabase functions serve --no-verify-jwt`, vérification de jeton de la
+  plateforme désactivée exprès : on teste ce que le CODE contrôle). La pile les
+  voit par un lien temporaire `supabase-local/supabase/functions` →
+  `supabase/functions`, retiré ensuite. Fichier d'environnement **vide** imposé
+  (`--env-file`) : aucun `.env` de la machine, donc aucun secret Dmbook réel.
 
 ## Lire les résultats
 

@@ -1,8 +1,9 @@
 -- =============================================================================
--- Test rejouable des déclencheurs d'OT (phase 0 de l'audit d'architecture)
+-- Test rejouable des déclencheurs d'OT — base LOCALE JETABLE uniquement
 -- =============================================================================
 -- Fige le cycle de vie d'un OT tel que la BASE le calcule (trigger
--- gestion_statut_ot) à partir des opérations, sur de VRAIS OT en attente :
+-- gestion_statut_ot) à partir des opérations, sur l'OT en attente posé par
+-- tests/securite/semis-ot.sql (gamme périodique du site A) :
 --   1. une opération démarrée            → l'OT passe « en_cours » ;
 --   2. toutes terminées                  → l'OT est « cloture » et la gamme
 --                                           périodique reçoit son OT suivant ;
@@ -12,8 +13,11 @@
 -- TOUJOURS par RAISE EXCEPTION (annulation de la transaction). Le message
 -- final commence par « TEST OK » ou « TEST ECHEC ».
 --
--- Lancement : npx supabase db query --linked --yes -f tests/securite/triggers-ot.sql
--- (le --yes est exigé par la CLI pour un bloc DO, même annulé).
+-- Lancement : `npm run base:tester` (psql sur la pile locale, après
+-- `npm run base:monter`). NE JAMAIS le jouer contre la production : il
+-- refuse de démarrer si la base n'a pas été semée par semis.mjs
+-- (compte admin@martin.test absent), et base-locale.mjs ne vise que
+-- 127.0.0.1.
 -- =============================================================================
 DO $test$
 DECLARE
@@ -21,6 +25,10 @@ DECLARE
   v_statut text; v_nb_avant int; v_nb_apres int;
   echecs text := ''; bilan text := '';
 BEGIN
+  -- Garde-fou : base locale semée par semis.mjs, jamais la production.
+  IF NOT EXISTS (SELECT 1 FROM auth.users WHERE email = 'admin@martin.test') THEN
+    RAISE EXCEPTION 'TEST REFUSE : base non semée par semis.mjs (admin@martin.test absent) — base locale uniquement.';
+  END IF;
   SELECT id INTO v_user FROM public.users WHERE est_actif ORDER BY created_at LIMIT 1;
   -- Comme l'appli : l'auteur de la clôture (closed_by = auth.uid()) devient
   -- l'auteur de l'OT suivant — sans session, la génération n'aurait pas d'auteur.

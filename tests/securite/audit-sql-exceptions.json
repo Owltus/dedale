@@ -1,0 +1,1692 @@
+[
+  {
+    "regle": "anon-execute",
+    "objet": "garde_connecteur()",
+    "motif": "Besoin documenté (157) : pré-requête PostgREST, jouée pour TOUTE requête, anon compris."
+  },
+  {
+    "regle": "anon-execute",
+    "objet": "via_connecteur()",
+    "motif": "Besoin documenté (153, 157) : appelée par garde_connecteur(), SECURITY INVOKER, donc sous anon pour une requête sans session."
+  },
+  {
+    "regle": "cloisonnement-site",
+    "objet": "gammes.gammes_manager_entreprise_write",
+    "motif": "Voulu (ADR 0009) : site_id NULL = catalogue commun du siège, géré par le manager hors de tout site."
+  },
+  {
+    "regle": "cloisonnement-site",
+    "objet": "user_sites.user_sites_self_select",
+    "motif": "Voulu : chacun lit SES propres rattachements (user_id = auth.uid()) — c’est la source de mes_site_ids(), elle ne peut pas s’y référer."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction check_miniature_prestataire()",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction check_miniature_site_direct()",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction check_miniature_site_equipement()",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction check_miniature_site_local()",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction check_miniature_site_niveau()",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction claude_ajouter_taches(text,uuid,jsonb,boolean,text)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction claude_annuler_ot(uuid,text,boolean,text)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction claude_avancer_taches(text,uuid,jsonb,boolean,text)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction claude_cloturer_demande(uuid,text,date,boolean,text)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction claude_cloturer_fiche(text,uuid,text,date,boolean,text)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction claude_cloturer_ot(uuid,boolean,text)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction claude_modifier_demande(uuid,text,uuid,uuid[],boolean,text)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction claude_modifier_fiche(text,uuid,text,text,uuid,uuid,boolean,boolean,text)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction claude_prendre_en_charge_demande(uuid,boolean,text)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction claude_prendre_en_charge_fiche(text,uuid,boolean,text)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction claude_reactiver_ot(uuid,boolean,text)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction claude_replanifier_ot(uuid,date,boolean,text)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction claude_rouvrir_demande(uuid,text,boolean,text)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction claude_rouvrir_fiche(text,uuid,text,uuid[],boolean,text)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction claude_rouvrir_ot(uuid,text,boolean,text)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction di_code_confirmation(text,uuid,uuid,jsonb)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction di_doublons(uuid,uuid[],uuid)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction di_equipement_texte(uuid)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction di_etat_resume(uuid)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction di_lieu_texte(uuid)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction di_liste_uuid(jsonb)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction di_verifier_code(boolean,text,text)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction di_verifier_constat(text)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction di_verifier_lieu(uuid,uuid[])",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction dmbook_deposer(uuid,text)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction dmbook_nom_secret_valide(text)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction dmbook_poser_lieux(uuid,uuid[])",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction dmbook_poser_statut(uuid,integer,uuid)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction dmbook_verrou_prendre(uuid,integer)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction dmbook_verrou_rendre(uuid)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction exiger_ecriture_claude()",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction fiche_cfg(text)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction fiche_code_confirmation(text,text,uuid,jsonb)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction fiche_date(text,text)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction fiche_doublons(text,uuid,uuid[],uuid,uuid)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction fiche_etat_resume(text,uuid)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction fiche_lieu_texte(uuid,uuid)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction fiche_refuser_demandeur()",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction fiche_statut_tache_texte(text)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction fiche_taches_nouvelles(jsonb,uuid)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction fiche_texte(text,integer,integer,text)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction fiche_uuid(jsonb,text)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction fiche_verifier_lieu(uuid,uuid,uuid)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction libelle_equipement(uuid)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction localisation_equipement(uuid)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction ot_code_confirmation(text,uuid,jsonb)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction ot_etat_resume(uuid)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction ot_pour_claude(uuid)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction ot_suivant_genere(uuid)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction ot_verifier_code(boolean,text,text)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction protect_users_acces_ia_insert()",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction refuser_connecteur_historique()",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction storage_objet_modifiable(text)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction storage_objet_rattache(text)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction supprimer_blob_orphelin(text)",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction trg_couper_connexions_claude()",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction trg_dmbook_file_reveil()",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction trg_fn_snapshots_categorie()",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction trg_fn_snapshots_equipement()",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction trg_fn_snapshots_gammes_equipements()",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction trg_fn_synchro_ops_gamme_modeles()",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction trg_fn_synchro_ops_modeles_items()",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction trg_fn_synchro_ops_operations()",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "fonction trg_fn_synchro_option_par_equipement()",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy audit_log.audit_log_no_delete",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy audit_log.audit_log_no_update",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy batiments.batiments_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy batiments.batiments_demandeur_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy batiments.batiments_site_scoped_delete",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy batiments.batiments_site_scoped_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy batiments.batiments_site_scoped_update",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy batiments.batiments_site_scoped_write",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy buckets.storage_buckets_select_documents",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy categories.categories_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy categories.categories_site_scoped_delete",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy categories.categories_site_scoped_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy categories.categories_site_scoped_update",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy categories.categories_site_scoped_write",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy categories.categories_technicien_delete",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy categories.categories_technicien_update",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy categories.categories_technicien_write",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy contrats_gammes.contrats_gammes_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy contrats_gammes.contrats_gammes_manager_write",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy contrats_gammes.contrats_gammes_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy contrats_gammes.contrats_gammes_technicien_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy contrats.contrats_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy contrats.contrats_manager_insert",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy contrats.contrats_manager_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy contrats.contrats_manager_update",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy contrats.contrats_technicien_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy demandes_intervention.di_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy demandes_intervention.di_demandeur_insert",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy demandes_intervention.di_demandeur_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy demandes_intervention.di_site_scoped_delete",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy demandes_intervention.di_site_scoped_insert",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy demandes_intervention.di_site_scoped_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy demandes_intervention.di_site_scoped_update",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy di_equipements.di_equipements_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy di_equipements.di_equipements_demandeur_insert",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy di_equipements.di_equipements_demandeur_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy di_equipements.di_equipements_scoped",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy di_equipements.di_equipements_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy di_localisations.di_localisations_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy di_localisations.di_localisations_demandeur_insert",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy di_localisations.di_localisations_demandeur_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy di_localisations.di_localisations_scoped",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy di_localisations.di_localisations_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy document_chapitres.document_chapitres_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy document_chapitres.document_chapitres_manager_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy document_chapitres.document_chapitres_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_contrats.doc_contrats_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_contrats.doc_contrats_scoped",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_contrats.doc_contrats_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_contrats.doc_contrats_technicien",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_di.doc_di_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_di.doc_di_demandeur_insert",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_di.doc_di_demandeur_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_di.doc_di_scoped",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_di.doc_di_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_equipements.doc_eq_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_equipements.doc_eq_scoped",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_equipements.doc_eq_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_evenements.doc_evenements_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_evenements.doc_evenements_scoped",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_evenements.doc_evenements_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_gammes.doc_gammes_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_gammes.doc_gammes_scoped",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_gammes.doc_gammes_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_interventions_travaux.doc_travaux_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_interventions_travaux.doc_travaux_scoped",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_interventions_travaux.doc_travaux_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_investissements.doc_capex_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_investissements.doc_capex_scoped",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_investissements.doc_capex_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_locaux.doc_locaux_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_locaux.doc_locaux_scoped",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_locaux.doc_locaux_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_ordres_travail.doc_ot_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_ordres_travail.doc_ot_scoped",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_ordres_travail.doc_ot_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_prestataires.doc_prest_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_prestataires.doc_prest_scoped",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents_prestataires.doc_prest_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents.documents_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents.documents_demandeur_insert",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents.documents_manager_tech_insert",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents.documents_manager_update",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents.documents_site_scoped_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy documents.documents_technicien_update",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy equipements.equipements_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy equipements.equipements_demandeur_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy equipements.equipements_site_scoped_delete",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy equipements.equipements_site_scoped_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy equipements.equipements_site_scoped_update",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy equipements.equipements_site_scoped_write",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy evenements_lieux.evenements_lieux_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy evenements_lieux.evenements_lieux_scoped",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy evenements_lieux.evenements_lieux_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy evenements.evenements_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy evenements.evenements_site_scoped_delete",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy evenements.evenements_site_scoped_insert",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy evenements.evenements_site_scoped_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy evenements.evenements_site_scoped_update",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy gamme_modeles.gamme_modeles_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy gamme_modeles.gamme_modeles_manager_write",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy gamme_modeles.gamme_modeles_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy gamme_modeles.gamme_modeles_technicien_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy gammes_equipements.gammes_equipements_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy gammes_equipements.gammes_equipements_manager_write",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy gammes_equipements.gammes_equipements_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy gammes_equipements.gammes_equipements_technicien_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy gammes.gammes_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy gammes.gammes_manager_entreprise_write",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy gammes.gammes_manager_site_write",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy gammes.gammes_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy gammes.gammes_technicien_site_write",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy interventions_travaux.travaux_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy interventions_travaux.travaux_site_scoped_delete",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy interventions_travaux.travaux_site_scoped_insert",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy interventions_travaux.travaux_site_scoped_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy interventions_travaux.travaux_site_scoped_update",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy investissements_decisions.capex_decisions_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy investissements_decisions.capex_decisions_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy investissements_devis.inv_devis_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy investissements_devis.inv_devis_scoped",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy investissements_devis.inv_devis_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy investissements.capex_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy investissements.capex_site_scoped_delete",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy investissements.capex_site_scoped_insert",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy investissements.capex_site_scoped_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy investissements.capex_site_scoped_update",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy locaux.locaux_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy locaux.locaux_demandeur_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy locaux.locaux_site_scoped_delete",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy locaux.locaux_site_scoped_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy locaux.locaux_site_scoped_update",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy locaux.locaux_site_scoped_write",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy miniatures.miniatures_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy miniatures.miniatures_manager_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy miniatures.miniatures_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy miniatures.miniatures_technicien_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy modeles_di.modeles_di_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy modeles_di.modeles_di_manager_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy modeles_di.modeles_di_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy modeles_di.modeles_di_technicien_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy modeles_equipements.modeles_equipements_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy modeles_equipements.modeles_equipements_manager_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy modeles_equipements.modeles_equipements_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy modeles_equipements.modeles_equipements_technicien_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy modeles_operations_items.modeles_items_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy modeles_operations_items.modeles_items_manager_write",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy modeles_operations_items.modeles_items_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy modeles_operations_items.modeles_items_technicien_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy modeles_operations.modeles_operations_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy modeles_operations.modeles_operations_manager_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy modeles_operations.modeles_operations_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy modeles_operations.modeles_operations_technicien_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy niveaux.niveaux_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy niveaux.niveaux_demandeur_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy niveaux.niveaux_site_scoped_delete",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy niveaux.niveaux_site_scoped_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy niveaux.niveaux_site_scoped_update",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy niveaux.niveaux_site_scoped_write",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy objects.storage_objects_delete_documents",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy objects.storage_objects_insert_documents",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy objects.storage_objects_select_documents",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy objects.storage_objects_update_documents",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy observations.observations_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy observations.observations_site_scoped_insert",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy observations.observations_site_scoped_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy observations.observations_site_scoped_update",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy operations_execution.opex_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy operations_execution.opex_manager_update",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy operations_execution.opex_site_scoped_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy operations_execution.opex_technicien_update",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy operations.operations_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy operations.operations_manager_write",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy operations.operations_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy operations.operations_technicien_write",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy ordres_travail.ot_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy ordres_travail.ot_manager_insert",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy ordres_travail.ot_manager_update",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy ordres_travail.ot_site_scoped_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy ordres_travail.ot_technicien_delete",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy ordres_travail.ot_technicien_insert",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy ordres_travail.ot_technicien_update",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy periodicites.periodicites_admin_write",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy periodicites.periodicites_authenticated_read",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy prestataires_sites.prestataires_sites_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy prestataires_sites.prestataires_sites_manager_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy prestataires_sites.prestataires_sites_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy prestataires_sites.prestataires_sites_technicien_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy prestataires.prestataires_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy prestataires.prestataires_manager_delete",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy prestataires.prestataires_manager_update",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy prestataires.prestataires_manager_write",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy prestataires.prestataires_site_scoped_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy prestataires.prestataires_technicien_delete",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy prestataires.prestataires_technicien_insert",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy prestataires.prestataires_technicien_update",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy roles.roles_admin_write",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy roles.roles_authenticated_read",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy sites.sites_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy sites.sites_demandeur_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy sites.sites_site_scoped_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy statuts_capex.statuts_capex_admin_write",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy statuts_capex.statuts_capex_authenticated_read",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy statuts_di.statuts_di_admin_write",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy statuts_di.statuts_di_authenticated_read",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy statuts_evenements.statuts_evenements_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy statuts_evenements.statuts_evenements_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy statuts_operations.statuts_operations_admin_write",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy statuts_operations.statuts_operations_authenticated_read",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy statuts_ot.statuts_ot_admin_write",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy statuts_ot.statuts_ot_authenticated_read",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy statuts_travaux.statuts_travaux_admin_write",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy statuts_travaux.statuts_travaux_authenticated_read",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy travaux_taches.travaux_taches_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy travaux_taches.travaux_taches_scoped",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy travaux_taches.travaux_taches_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy types_contrats.types_contrats_admin_write",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy types_contrats.types_contrats_authenticated_read",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy types_documents.types_documents_admin_write",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy types_documents.types_documents_authenticated_read",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy types_locaux.types_locaux_admin_write",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy types_locaux.types_locaux_authenticated_read",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy types_operations.types_operations_admin_write",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy types_operations.types_operations_authenticated_read",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy unites.unites_admin_write",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy unites.unites_authenticated_read",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy user_sites.user_sites_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy user_sites.user_sites_manager_provision",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy user_sites.user_sites_manager_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy user_sites.user_sites_self_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy users.users_admin_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy users.users_manager_all",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy users.users_manager_select_peers",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy users.users_same_client_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy users.users_self_select",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy users.users_self_update",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "commentaire-absent",
+    "objet": "policy users.users_technicien_provision",
+    "motif": "Historique : objet antérieur à la règle COMMENT ON (skill migration-sql). Tout objet NOUVEAU doit être commenté ; à commenter au fil des migrations qui le touchent."
+  },
+  {
+    "regle": "fk-sans-regle",
+    "objet": "contrats.contrats_type_contrat_id_fkey",
+    "motif": "NO ACTION = RESTRICT de fait (vérifié en fin d’instruction) : suppression bloquée, conforme à la doctrine hard-delete ; à expliciter en RESTRICT au fil des migrations."
+  },
+  {
+    "regle": "fk-sans-regle",
+    "objet": "demandes_intervention.demandes_intervention_created_by_fkey",
+    "motif": "NO ACTION = RESTRICT de fait (vérifié en fin d’instruction) : suppression bloquée, conforme à la doctrine hard-delete ; à expliciter en RESTRICT au fil des migrations."
+  },
+  {
+    "regle": "fk-sans-regle",
+    "objet": "demandes_intervention.demandes_intervention_statut_di_id_fkey",
+    "motif": "NO ACTION = RESTRICT de fait (vérifié en fin d’instruction) : suppression bloquée, conforme à la doctrine hard-delete ; à expliciter en RESTRICT au fil des migrations."
+  },
+  {
+    "regle": "fk-sans-regle",
+    "objet": "documents.documents_uploaded_by_fkey",
+    "motif": "NO ACTION = RESTRICT de fait (vérifié en fin d’instruction) : suppression bloquée, conforme à la doctrine hard-delete ; à expliciter en RESTRICT au fil des migrations."
+  },
+  {
+    "regle": "fk-sans-regle",
+    "objet": "evenements.evenements_created_by_fkey",
+    "motif": "NO ACTION = RESTRICT de fait (vérifié en fin d’instruction) : suppression bloquée, conforme à la doctrine hard-delete ; à expliciter en RESTRICT au fil des migrations."
+  },
+  {
+    "regle": "fk-sans-regle",
+    "objet": "evenements.evenements_equipement_id_fkey",
+    "motif": "NO ACTION = RESTRICT de fait (vérifié en fin d’instruction) : suppression bloquée, conforme à la doctrine hard-delete ; à expliciter en RESTRICT au fil des migrations."
+  },
+  {
+    "regle": "fk-sans-regle",
+    "objet": "evenements.evenements_local_id_fkey",
+    "motif": "NO ACTION = RESTRICT de fait (vérifié en fin d’instruction) : suppression bloquée, conforme à la doctrine hard-delete ; à expliciter en RESTRICT au fil des migrations."
+  },
+  {
+    "regle": "fk-sans-regle",
+    "objet": "evenements.evenements_statut_evenement_id_fkey",
+    "motif": "NO ACTION = RESTRICT de fait (vérifié en fin d’instruction) : suppression bloquée, conforme à la doctrine hard-delete ; à expliciter en RESTRICT au fil des migrations."
+  },
+  {
+    "regle": "fk-sans-regle",
+    "objet": "gammes.gammes_created_by_fkey",
+    "motif": "NO ACTION = RESTRICT de fait (vérifié en fin d’instruction) : suppression bloquée, conforme à la doctrine hard-delete ; à expliciter en RESTRICT au fil des migrations."
+  },
+  {
+    "regle": "fk-sans-regle",
+    "objet": "interventions_travaux.interventions_travaux_created_by_fkey",
+    "motif": "NO ACTION = RESTRICT de fait (vérifié en fin d’instruction) : suppression bloquée, conforme à la doctrine hard-delete ; à expliciter en RESTRICT au fil des migrations."
+  },
+  {
+    "regle": "fk-sans-regle",
+    "objet": "interventions_travaux.interventions_travaux_equipement_id_fkey",
+    "motif": "NO ACTION = RESTRICT de fait (vérifié en fin d’instruction) : suppression bloquée, conforme à la doctrine hard-delete ; à expliciter en RESTRICT au fil des migrations."
+  },
+  {
+    "regle": "fk-sans-regle",
+    "objet": "interventions_travaux.interventions_travaux_local_id_fkey",
+    "motif": "NO ACTION = RESTRICT de fait (vérifié en fin d’instruction) : suppression bloquée, conforme à la doctrine hard-delete ; à expliciter en RESTRICT au fil des migrations."
+  },
+  {
+    "regle": "fk-sans-regle",
+    "objet": "interventions_travaux.interventions_travaux_statut_travaux_id_fkey",
+    "motif": "NO ACTION = RESTRICT de fait (vérifié en fin d’instruction) : suppression bloquée, conforme à la doctrine hard-delete ; à expliciter en RESTRICT au fil des migrations."
+  },
+  {
+    "regle": "fk-sans-regle",
+    "objet": "investissements_decisions.investissements_decisions_statut_capex_id_fkey",
+    "motif": "NO ACTION = RESTRICT de fait (vérifié en fin d’instruction) : suppression bloquée, conforme à la doctrine hard-delete ; à expliciter en RESTRICT au fil des migrations."
+  },
+  {
+    "regle": "fk-sans-regle",
+    "objet": "investissements.investissements_created_by_fkey",
+    "motif": "NO ACTION = RESTRICT de fait (vérifié en fin d’instruction) : suppression bloquée, conforme à la doctrine hard-delete ; à expliciter en RESTRICT au fil des migrations."
+  },
+  {
+    "regle": "fk-sans-regle",
+    "objet": "investissements.investissements_statut_capex_id_fkey",
+    "motif": "NO ACTION = RESTRICT de fait (vérifié en fin d’instruction) : suppression bloquée, conforme à la doctrine hard-delete ; à expliciter en RESTRICT au fil des migrations."
+  },
+  {
+    "regle": "fk-sans-regle",
+    "objet": "modeles_di.modeles_di_created_by_fkey",
+    "motif": "NO ACTION = RESTRICT de fait (vérifié en fin d’instruction) : suppression bloquée, conforme à la doctrine hard-delete ; à expliciter en RESTRICT au fil des migrations."
+  },
+  {
+    "regle": "fk-sans-regle",
+    "objet": "modeles_operations_items.modeles_operations_items_type_operation_id_fkey",
+    "motif": "NO ACTION = RESTRICT de fait (vérifié en fin d’instruction) : suppression bloquée, conforme à la doctrine hard-delete ; à expliciter en RESTRICT au fil des migrations."
+  },
+  {
+    "regle": "fk-sans-regle",
+    "objet": "modeles_operations_items.modeles_operations_items_unite_id_fkey",
+    "motif": "NO ACTION = RESTRICT de fait (vérifié en fin d’instruction) : suppression bloquée, conforme à la doctrine hard-delete ; à expliciter en RESTRICT au fil des migrations."
+  },
+  {
+    "regle": "fk-sans-regle",
+    "objet": "observations.observations_created_by_fkey",
+    "motif": "NO ACTION = RESTRICT de fait (vérifié en fin d’instruction) : suppression bloquée, conforme à la doctrine hard-delete ; à expliciter en RESTRICT au fil des migrations."
+  },
+  {
+    "regle": "fk-sans-regle",
+    "objet": "observations.observations_levee_by_fkey",
+    "motif": "NO ACTION = RESTRICT de fait (vérifié en fin d’instruction) : suppression bloquée, conforme à la doctrine hard-delete ; à expliciter en RESTRICT au fil des migrations."
+  },
+  {
+    "regle": "fk-sans-regle",
+    "objet": "operations_execution.operations_execution_statut_fkey",
+    "motif": "NO ACTION = RESTRICT de fait (vérifié en fin d’instruction) : suppression bloquée, conforme à la doctrine hard-delete ; à expliciter en RESTRICT au fil des migrations."
+  },
+  {
+    "regle": "fk-sans-regle",
+    "objet": "operations.operations_type_operation_id_fkey",
+    "motif": "NO ACTION = RESTRICT de fait (vérifié en fin d’instruction) : suppression bloquée, conforme à la doctrine hard-delete ; à expliciter en RESTRICT au fil des migrations."
+  },
+  {
+    "regle": "fk-sans-regle",
+    "objet": "operations.operations_unite_id_fkey",
+    "motif": "NO ACTION = RESTRICT de fait (vérifié en fin d’instruction) : suppression bloquée, conforme à la doctrine hard-delete ; à expliciter en RESTRICT au fil des migrations."
+  },
+  {
+    "regle": "fk-sans-regle",
+    "objet": "ordres_travail.ordres_travail_created_by_fkey",
+    "motif": "NO ACTION = RESTRICT de fait (vérifié en fin d’instruction) : suppression bloquée, conforme à la doctrine hard-delete ; à expliciter en RESTRICT au fil des migrations."
+  },
+  {
+    "regle": "fk-sans-regle",
+    "objet": "ordres_travail.ordres_travail_statut_fkey",
+    "motif": "NO ACTION = RESTRICT de fait (vérifié en fin d’instruction) : suppression bloquée, conforme à la doctrine hard-delete ; à expliciter en RESTRICT au fil des migrations."
+  },
+  {
+    "regle": "fk-sans-regle",
+    "objet": "users.users_role_id_fkey",
+    "motif": "NO ACTION = RESTRICT de fait (vérifié en fin d’instruction) : suppression bloquée, conforme à la doctrine hard-delete ; à expliciter en RESTRICT au fil des migrations."
+  },
+  {
+    "regle": "rls-sans-policy",
+    "objet": "dmbook_connexions",
+    "motif": "Voulu (165) : table réservée à service_role (REVOKE ALL anon/authenticated) ; lue par la RPC DEFINER dmbook_connexions_public()."
+  }
+]
