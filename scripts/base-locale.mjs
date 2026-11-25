@@ -139,8 +139,19 @@ function lancerNode(script, cwd) {
     cwd,
     encoding: 'utf8',
     env: { ...process.env, MARTIN_LOCAL_DIR: PILE },
+    // Une sonde bloquée ne doit jamais geler la CI : 10 min au plus.
+    timeout: 600_000,
+    killSignal: 'SIGKILL',
   })
-  return { code: r.status, sortie: `${r.stdout ?? ''}${r.stderr ?? ''}` }
+  const coupe = r.error
+    ? `
+✗ ${script} interrompue : ${r.error.message}
+`
+    : ''
+  return {
+    code: r.status,
+    sortie: `${r.stdout ?? ''}${r.stderr ?? ''}${coupe}`,
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -349,6 +360,10 @@ async function testerEdgeFunctions(apiUrl) {
     cwd: RACINE,
     stdio: ['ignore', 'pipe', 'pipe'],
     shell: WINDOWS,
+    // Hors Windows : groupe de processus à part, pour arrêter npx ET la CLI
+    // supabase qu'il lance (sinon elle garde les tubes ouverts et le script ne
+    // se termine jamais — vu en CI le 25/11/2026 : 23 min puis annulation).
+    detached: !WINDOWS,
   })
   let journal = ''
   service.stdout.on('data', (d) => (journal += d))
@@ -391,7 +406,16 @@ async function testerEdgeFunctions(apiUrl) {
       spawnSync('taskkill', ['/pid', String(service.pid), '/T', '/F'], {
         stdio: 'ignore',
       })
-    else service.kill('SIGINT')
+    else {
+      try {
+        process.kill(-(service.pid ?? 0), 'SIGINT')
+      } catch {
+        /* déjà arrêté */
+      }
+    }
+    service.stdout.destroy()
+    service.stderr.destroy()
+    service.unref()
     delierFonctions()
     rmSync(dossierEnv, { recursive: true, force: true })
   }

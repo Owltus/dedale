@@ -74,6 +74,7 @@ jobs:
       - name: Monter la base jetable depuis schema_complete.sql
         run: npm run base:monter
       - name: Sondes de sécurité et tests d'intégration
+        timeout-minutes: 15
         run: npm run base:tester
       - name: Démonter
         if: always()
