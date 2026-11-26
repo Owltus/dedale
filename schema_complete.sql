@@ -22782,3 +22782,98 @@ GRANT EXECUTE ON FUNCTION public.claude_modifier_equipements(uuid, jsonb, jsonb,
 GRANT EXECUTE ON FUNCTION public.claude_deplacer_equipements(uuid, jsonb, uuid, jsonb, boolean, boolean, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.claude_rattacher_equipements_gamme(uuid, uuid, jsonb, text, boolean, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.claude_supprimer_equipements(uuid, jsonb, boolean, text) TO authenticated;
+
+
+-- =============================================================================
+-- 191 — Faire suivre la miniature d'une flotte à ses équipements
+-- =============================================================================
+-- Symptôme corrigé : une miniature posée (ou changée) sur une flotte après la
+-- création de ses équipements ne leur arrivait jamais. « Diffuseur sonore »
+-- avait sa miniature partout, « Diffuseur lumineux » nulle part : seul l'ordre
+-- (équipements créés avant ou après la miniature) faisait la différence.
+--
+-- Cause : equipements.miniature_id est une copie prise à la création
+-- (gabaritSousCategorie côté front, deployer_equipements côté base). Les
+-- caractéristiques sont propagées quand la flotte change
+-- (propager_gabarit_sous_categorie) ; la miniature, elle, ne l'était pas.
+--
+-- Correctif (décision PO du 26/11/2026, « suivre la flotte ») : quand la
+-- miniature de référence d'une flotte change, ses équipements qui n'en avaient
+-- pas, ou qui avaient l'ANCIENNE, prennent la nouvelle. Un équipement qui porte
+-- une autre miniature (posée à part, import) la garde.
+--   - flotte de parc sans modèle lié : référence = categories.miniature_id ;
+--   - flotte liée à un modèle (ancien fonctionnement) : référence = celle du
+--     modèle → déclencheur sur modeles_equipements.
+-- Ne fait PAS : aucun rattrapage des équipements existants (fait à part le
+-- 26/11 : 92 équipements sans miniature alignés sur leur flotte).
+--
+-- Innocuité : SECURITY INVOKER — la mise à jour passe par la RLS de la personne
+-- qui modifie la flotte (une flotte de site ne contient que des équipements de
+-- ce site, donc les mêmes droits). Les miniatures d'une flotte de site sont du
+-- site ou du pool commun : check_miniature_site reste satisfait. Colonne
+-- miniature_id seule : aucun déclencheur de synchro des OT n'est concerné.
+--
+-- Vérification après application :
+--     SELECT tgname FROM pg_trigger
+--      WHERE tgname IN ('trg_miniature_flotte_suivie', 'trg_miniature_modele_suivie');
+--     -- 2 lignes
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION public.trg_fn_miniature_flotte_suivie()
+RETURNS TRIGGER
+LANGUAGE plpgsql SECURITY INVOKER
+SET search_path = ''
+AS $$
+BEGIN
+    IF NEW.scope <> 'parc' OR NEW.modele_equipement_id IS NOT NULL THEN
+        RETURN NULL;
+    END IF;
+    UPDATE public.equipements e
+       SET miniature_id = NEW.miniature_id
+     WHERE e.categorie_id = NEW.id
+       AND (e.miniature_id IS NULL OR e.miniature_id = OLD.miniature_id)
+       AND e.miniature_id IS DISTINCT FROM NEW.miniature_id;
+    RETURN NULL;
+END;
+$$;
+
+COMMENT ON FUNCTION public.trg_fn_miniature_flotte_suivie() IS
+    '(191) Miniature d''une flotte de parc (sans modèle lié) changée → ses équipements sans miniature ou avec l''ancienne prennent la nouvelle. SECURITY INVOKER : RLS de la personne.';
+
+DROP TRIGGER IF EXISTS trg_miniature_flotte_suivie ON public.categories;
+CREATE TRIGGER trg_miniature_flotte_suivie
+    AFTER UPDATE OF miniature_id ON public.categories
+    FOR EACH ROW
+    WHEN (OLD.miniature_id IS DISTINCT FROM NEW.miniature_id)
+    EXECUTE FUNCTION public.trg_fn_miniature_flotte_suivie();
+
+CREATE OR REPLACE FUNCTION public.trg_fn_miniature_modele_suivie()
+RETURNS TRIGGER
+LANGUAGE plpgsql SECURITY INVOKER
+SET search_path = ''
+AS $$
+BEGIN
+    UPDATE public.equipements e
+       SET miniature_id = NEW.miniature_id
+      FROM public.categories c
+     WHERE c.modele_equipement_id = NEW.id
+       AND c.scope = 'parc'
+       AND e.categorie_id = c.id
+       AND (e.miniature_id IS NULL OR e.miniature_id = OLD.miniature_id)
+       AND e.miniature_id IS DISTINCT FROM NEW.miniature_id;
+    RETURN NULL;
+END;
+$$;
+
+COMMENT ON FUNCTION public.trg_fn_miniature_modele_suivie() IS
+    '(191) Miniature d''un modèle changée → équipements des flottes liées à ce modèle, sans miniature ou avec l''ancienne, prennent la nouvelle. SECURITY INVOKER : RLS de la personne.';
+
+DROP TRIGGER IF EXISTS trg_miniature_modele_suivie ON public.modeles_equipements;
+CREATE TRIGGER trg_miniature_modele_suivie
+    AFTER UPDATE OF miniature_id ON public.modeles_equipements
+    FOR EACH ROW
+    WHEN (OLD.miniature_id IS DISTINCT FROM NEW.miniature_id)
+    EXECUTE FUNCTION public.trg_fn_miniature_modele_suivie();
+
+REVOKE EXECUTE ON FUNCTION public.trg_fn_miniature_flotte_suivie() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.trg_fn_miniature_modele_suivie() FROM PUBLIC, anon, authenticated;
