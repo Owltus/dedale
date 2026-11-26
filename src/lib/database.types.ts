@@ -4204,10 +4204,7 @@ export type Database = {
         Args: { p_prestataire_id: string }
         Returns: boolean
       }
-      champs_depuis_gabarit: {
-        Args: { p_gabarit: Json }
-        Returns: Json
-      }
+      champs_depuis_gabarit: { Args: { p_gabarit: Json }; Returns: Json }
       choisir_par_nom: {
         Args: { p_candidats: Json; p_demande: string; p_quoi: string }
         Returns: string
@@ -4843,10 +4840,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      equipement_en_clair: {
-        Args: { p_equipement_id: string }
-        Returns: Json
-      }
+      equipement_en_clair: { Args: { p_equipement_id: string }; Returns: Json }
       equipements_attendus: {
         Args: { p_gamme_id: string }
         Returns: {
