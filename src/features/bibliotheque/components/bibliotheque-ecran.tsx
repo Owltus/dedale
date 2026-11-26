@@ -4,6 +4,7 @@ import { ScopeProvider } from '@/components/common/scope-provider'
 import { PageContainer } from '@/components/common/page-container'
 import { Tabs, type TabItem } from '@/components/common/tabs'
 import { ModelesEquipementsPanel } from '@/features/modeles-equipements/components/modeles-equipements-panel'
+import { InstallerDeployer } from '@/features/equipements/components/installer-deployer-dialog'
 import { GammesTypesPanel } from '@/features/modeles-operations/components/gammes-types-panel'
 import { GammesBiblioPanel } from '@/features/gammes/components/gammes-biblio-panel'
 import { ModelesDiPanel } from '@/features/modeles-di/components/modeles-di-panel'
@@ -68,7 +69,13 @@ export function BibliothequeEcran() {
       label: 'Modèles d’équipements',
       description:
         'Modèles d’équipements réutilisables du catalogue, classés par catégorie.',
-      content: <ModelesEquipementsPanel />,
+      // « Installer et déployer » injecté ici : l'assistant de déploiement vit
+      // dans `equipements`, qui importe déjà `modeles-equipements` (cycle).
+      content: (
+        <ModelesEquipementsPanel
+          renderActionsModele={(m) => <InstallerDeployer modele={m} />}
+        />
+      ),
     },
     'gammes-types': {
       label: 'Modèles d’opérations',

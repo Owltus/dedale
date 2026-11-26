@@ -62,15 +62,29 @@ déploiement raté ne se défaisait qu'à la main. Enfin `instancier_equipement`
    désignant les lieux par bâtiment, niveau et type (résolus par la base, sans
    ambiguïté) ou par les lieux de l'outil `lieux`, et annule le N-ième
    déploiement le plus récent d'une flotte. Le code d'un déploiement est lié à
-   la liste triée des lieux et à l'état de la flotte. C'est la seule
-   suppression d'équipements ouverte à Claude.
+   la liste triée des lieux et à l'état de la flotte.
+10. **Complément du 26/11/2026 (migrations 187-190)** : le connecteur couvre
+    tout le cycle, toujours en SECURITY INVOKER (la RLS de la personne, rien
+    d'élargi) — `claude_creer_lieux` / `claude_modifier_lieux` (types de lieux
+    existants seulement), `installer_modele_equipement` (copie du commun + flotte
+    en une transaction, aussi utilisée par le bouton « Installer et déployer » de
+    la Bibliothèque) et son geste Claude, `claude_modifier_modele_equipement` /
+    `claude_modifier_flotte`, `claude_modifier_equipements`,
+    `claude_deplacer_equipements` (même site), `claude_rattacher_equipements_gamme`,
+    `claude_supprimer_equipements`. Décisions PO : le commun se crée et se modifie
+    via Claude comme dans l'appli (admin et manager, jamais le technicien) ; un
+    équipement qui a un historique (OT faits, DI, documents, travaux, événements,
+    observations) n'est jamais supprimé, il est nommé et gardé. Aucune
+    suppression de lieu, de modèle ni de flotte via Claude. Les modifications
+    d'équipements en lot ne resynchronisent chaque gamme qu'une fois (187).
 
 ## Conséquences
 
 - Tout ajout d'équipements en nombre passe par `deployer_equipements` ; l'import
   CSV reste pour les données hétérogènes (une ligne = un équipement différent).
 - Le déploiement suit la Bibliothèque du site : un modèle du commun s'installe
-  d'abord sur le site (ADR 0009).
+  d'abord sur le site (ADR 0009), en un geste avec sa flotte
+  (`installer_modele_equipement`).
 - Un lot n'a ni nom ni date propres : tout se déduit de ses équipements (site,
   flotte, date de création, nombre). Remettre `lot_deploiement` à NULL sort un
   équipement de son lot.

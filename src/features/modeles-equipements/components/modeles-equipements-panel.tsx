@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Package } from 'lucide-react'
 import { toast } from 'sonner'
@@ -39,7 +39,16 @@ function modeleSpecsLabel(m: ModeleEquipement): string {
  * libellés, son dialog de modèle, sa vue détail et son flux de suppression
  * (suppression simple et définitive). La RLS reste l'arbitre réel.
  */
-export function ModelesEquipementsPanel() {
+export function ModelesEquipementsPanel({
+  renderActionsModele,
+}: {
+  /**
+   * Actions propres au détail d'un modèle, injectées par l'écran hôte (la
+   * Bibliothèque y passe « Installer et déployer », qui vit dans la feature
+   * `equipements` : l'importer ici créerait un cycle).
+   */
+  renderActionsModele?: (modele: ModeleEquipement) => ReactNode
+} = {}) {
   const { data: role } = useCurrentRole()
   const canEntreprise = perm.canManageAdmin(role)
   const { sites } = useSiteContext()
@@ -183,7 +192,11 @@ export function ModelesEquipementsPanel() {
         />
       )}
       renderDetail={(m, canEdit) => (
-        <ModeleEquipementDetail modele={m} canEdit={canEdit} />
+        <ModeleEquipementDetail
+          modele={m}
+          canEdit={canEdit}
+          actions={renderActionsModele?.(m)}
+        />
       )}
       onAskDeleteModele={setToDelete}
       deleteModeleDialog={deleteModeleDialog}

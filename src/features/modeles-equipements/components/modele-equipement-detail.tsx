@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   Package,
   Pencil,
@@ -35,10 +35,17 @@ import { listStack } from '@/lib/responsive'
 export function ModeleEquipementDetail({
   modele,
   canEdit,
+  actions,
 }: {
   modele: ModeleEquipement
   /** Édition réservée au rôle métier sur la portée du modèle (sinon lecture seule). */
   canEdit: boolean
+  /**
+   * Actions injectées sous l'en-tête (« Installer et déployer », fourni par la
+   * Bibliothèque : cette feature ne peut pas importer l'assistant de
+   * déploiement, qui l'importe déjà).
+   */
+  actions?: ReactNode
 }) {
   const update = useUpdateModeleSpecifications()
   const { urlOf, refresh: refreshMiniatures } = useMiniatureUrls()
@@ -126,6 +133,8 @@ export function ModeleEquipementDetail({
           </>
         }
       />
+
+      {actions}
 
       {/* Section Caractéristiques : cartes + ajout via modal (un champ à la fois). */}
       <div className="flex items-center justify-between gap-2">

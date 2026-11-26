@@ -4,6 +4,8 @@ import { modelesEquipementsQueries } from './queries'
 import type { ModeleEquipementFormValues } from './schemas'
 import { serializeChamps, type Champ } from '@/lib/champs'
 import { siteIdPourPortee } from '@/lib/scope'
+import type { Json } from '@/lib/database.types'
+import { categoriesQueries } from '@/features/categories/queries'
 
 // Payload des champs de BASE d'un modèle (HORS `specifications`). Le JSONB des
 // caractéristiques est écrit à part : à l'INSERT (création) et via
@@ -145,5 +147,75 @@ export function useCopierModeleEquipement() {
     },
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: modelesEquipementsQueries.all() }),
+  })
+}
+
+/** Réponse de `installer_modele_equipement` (188). */
+interface InstallationModele {
+  modeleId: string
+  /** Flotte créée, `null` si aucune n'était demandée. */
+  categorieId: string | null
+}
+
+/** Lit `{ modele_id, categorie_id }` sans faire confiance à la forme du JSON. */
+function lireInstallation(data: Json): InstallationModele {
+  const o =
+    data !== null && typeof data === 'object' && !Array.isArray(data)
+      ? data
+      : {}
+  const modeleId = typeof o.modele_id === 'string' ? o.modele_id : null
+  if (modeleId === null) throw new Error('Réponse d’installation illisible.')
+  return {
+    modeleId,
+    categorieId: typeof o.categorie_id === 'string' ? o.categorie_id : null,
+  }
+}
+
+/**
+ * Installe un modèle du COMMUN sur un site et, si demandé, crée sa flotte
+ * (sous-catégorie de parc qui RECOPIE le modèle installé), en UNE transaction :
+ * RPC `installer_modele_equipement` (188). Refus clair d'un homonyme déjà
+ * installé ou d'une flotte homonyme (messages de la base). Rafraîchit les
+ * modèles et les catégories (la flotte et la catégorie matérialisée sur le
+ * site) avant de rendre la main : l'assistant de déploiement qui suit voit la
+ * flotte.
+ */
+export function useInstallerModeleEquipement() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      modeleCommunId,
+      siteId,
+      creerFlotte,
+      parentId = null,
+      nomFlotte = null,
+      valeurPrincipale = null,
+    }: {
+      modeleCommunId: string
+      siteId: string
+      creerFlotte: boolean
+      parentId?: string | null
+      nomFlotte?: string | null
+      valeurPrincipale?: string | null
+    }) => {
+      const { data } = await supabase
+        .rpc('installer_modele_equipement', {
+          p_modele_commun_id: modeleCommunId,
+          p_site_id: siteId,
+          p_creer_flotte: creerFlotte,
+          ...(parentId === null ? {} : { p_flotte_parent_id: parentId }),
+          ...(nomFlotte === null ? {} : { p_nom_flotte: nomFlotte }),
+          ...(valeurPrincipale === null
+            ? {}
+            : { p_valeur_principale: valeurPrincipale }),
+        })
+        .throwOnError()
+      return lireInstallation(data)
+    },
+    onSuccess: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: modelesEquipementsQueries.all() }),
+        qc.invalidateQueries({ queryKey: categoriesQueries.all() }),
+      ]),
   })
 }
