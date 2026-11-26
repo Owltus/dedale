@@ -16,7 +16,13 @@
 //      parc par le protocole MCP, et compare à l'attendu ; puis joue de bout
 //      en bout les gestes d'écriture du parc (186) : modèle, déploiement par
 //      les noms, annulation — aperçu → code → application ; code faux ou
-//      rejoué refusé, accès Claude en lecture seule refusé ;
+//      rejoué refusé, accès Claude en lecture seule refusé ; enfin un
+//      parcours complet des gestes 188-190 (creer_lieux → installer_modele →
+//      deployer_equipements → modifier_equipements → deplacer_equipements →
+//      rattacher_plan ajouter puis retirer → supprimer_equipements), chacun
+//      aperçu → code faux → application → rejeu refusé, sans identifiant
+//      montré (la matrice des rôles vit dans
+//      tests/integration/connecteur-parc-lieux.mjs) ;
 //   4. retire tout (terrain, application, accès) quoi qu'il arrive.
 // Un écart est un FINDING : on ne corrige pas l'attendu pour passer.
 // =============================================================================
@@ -519,6 +525,265 @@ export async function sonderConnecteur() {
         montres.join(', '),
       )
     }
+
+    // ─── Parcours lieux → Bibliothèque → parc (188-190), par le protocole ────
+    console.log(
+      '\n=== Connecteur Claude : lieux, installation, déploiement, corrections, suppression ===\n',
+    )
+    const niveau4 = `R+4 cl ${x}`
+    const etat = (sql) => psql([], sql)
+    /**
+     * Un geste de bout en bout : aperçu (état inchangé) → code faux refusé →
+     * application avec le code (état attendu) → même code rejoué refusé. Aucun
+     * identifiant dans l'aperçu ni dans l'enregistrement.
+     */
+    const parcours = async (titre, nom, args, { apercu, lire, attendu }) => {
+      const avant = lire()
+      const ap = await outil(tech, nom, args)
+      const code = ap.donnees?.code_confirmation ?? ''
+      controle(
+        `${titre} : aperçu (code, consigne), rien d’écrit`,
+        !ap.erreur &&
+          /^[0-9A-F]{8}$/.test(code) &&
+          /APERÇU SEULEMENT/.test(ap.donnees.consigne) &&
+          apercu(ap.donnees) &&
+          lire() === avant,
+        ap.texte.slice(0, 300),
+      )
+      const autre = `${code[0] === 'A' ? 'B' : 'A'}${code.slice(1) || '0000000'}`
+      const faux = await outil(tech, nom, {
+        ...args,
+        appliquer: true,
+        code: autre,
+      })
+      controle(
+        `${titre} : code faux refusé, rien d’écrit`,
+        faux.erreur &&
+          /Code de confirmation/.test(faux.texte) &&
+          lire() === avant,
+        faux.texte.slice(0, 300),
+      )
+      const ok = await outil(tech, nom, { ...args, appliquer: true, code })
+      controle(
+        `${titre} : enregistré avec le code`,
+        !ok.erreur && ok.donnees?.mode === 'enregistré' && lire() === attendu,
+        `${ok.texte.slice(0, 300)} / état ${lire()} (attendu ${attendu})`,
+      )
+      const rejeu = await outil(tech, nom, { ...args, appliquer: true, code })
+      controle(
+        `${titre} : code rejoué refusé, rien de plus`,
+        rejeu.erreur &&
+          /périmé|Aucun équipement/.test(rejeu.texte) &&
+          lire() === attendu,
+        rejeu.texte.slice(0, 300),
+      )
+      for (const [quoi, r] of [
+        ['aperçu', ap],
+        ['enregistrement', ok],
+      ]) {
+        const montres = identifiantsMontres(r.donnees, [])
+        controle(
+          `${titre} : aucun identifiant montré (${quoi})`,
+          montres.length === 0,
+          montres.join(', '),
+        )
+      }
+      return ap.donnees
+    }
+
+    // Un modèle du COMMUN pas encore installé sur le site A.
+    psql(
+      [],
+      `INSERT INTO public.modeles_equipements (site_id, nom, categorie_id, specifications)
+       SELECT NULL, 'Déclencheur cl ${x}', c.id,
+              '{"champs": [{"cle": "Repère", "type": "texte", "requis": true, "defaut": null},
+                           {"cle": "Couleur", "type": "liste", "options": ["Rouge", "Vert"], "requis": false, "defaut": "Rouge"}]}'
+       FROM public.categories c WHERE c.nom = 'Sécurité commun cl ${x}' AND c.site_id IS NULL;`,
+    )
+
+    // 1. creer_lieux : deux chambres et une réserve sur un niveau neuf (une
+    //    réserve en double dans la demande, ignorée).
+    const lieuxDuNiveau = () =>
+      etat(
+        `SELECT count(*) FROM public.locaux l JOIN public.niveaux n ON n.id = l.niveau_id
+         WHERE n.nom = '${niveau4}' AND n.batiment_id = '${d.A.batiment}'`,
+      )
+    const c401 = `Chambre 401 cl ${x}`
+    const c402 = `Chambre 402 cl ${x}`
+    const reserve = `Réserve cl ${x}`
+    await parcours(
+      'creer_lieux',
+      'creer_lieux',
+      {
+        site: 'Site Alpha',
+        lieux: [
+          {
+            batiment: bat,
+            niveau: niveau4,
+            ordre_niveau: 4,
+            nom: c401,
+            type: 'Chambre standard',
+            surface: 18,
+          },
+          {
+            batiment: bat,
+            niveau: niveau4,
+            nom: c402,
+            type: 'Chambre standard',
+          },
+          { batiment: bat, niveau: niveau4, nom: reserve },
+          { batiment: bat, niveau: niveau4, nom: reserve.toLowerCase() },
+        ],
+      },
+      {
+        apercu: (r) =>
+          r.a_creer === 3 &&
+          r.en_double_dans_la_demande === 1 &&
+          r.batiments_a_creer?.length === 0 &&
+          r.niveaux_a_creer?.[0]?.niveau === niveau4,
+        lire: lieuxDuNiveau,
+        attendu: '3',
+      },
+    )
+
+    // 2. installer_modele : copie du commun + sa flotte sur le site A.
+    const flotte = `Déclencheur cl ${x}`
+    const installes = () =>
+      etat(
+        `SELECT (SELECT count(*) FROM public.modeles_equipements WHERE nom = '${flotte}' AND site_id = '${d.A.site}')
+             || '/' || (SELECT count(*) FROM public.categories WHERE nom = '${flotte}' AND scope = 'parc' AND site_id = '${d.A.site}')`,
+      )
+    await parcours(
+      'installer_modele',
+      'installer_modele',
+      {
+        site: 'Site Alpha',
+        modele: flotte,
+        categorie_parc: `Sécurité incendie cl ${x}`,
+        valeur_principale: 'Repère',
+      },
+      {
+        apercu: (r) =>
+          r.modele?.gabarit?.[1]?.defaut === 'Rouge' &&
+          r.flotte?.nom === flotte &&
+          r.flotte?.valeur_principale === 'Repère',
+        lire: installes,
+        attendu: '1/1',
+      },
+    )
+
+    // 3. deployer_equipements : un déclencheur par chambre du niveau neuf.
+    const parLieu = () =>
+      etat(
+        `SELECT coalesce(string_agg(l.nom || '=' || s.n, ',' ORDER BY l.nom), '') FROM (
+           SELECT e.local_id, count(*) AS n FROM public.equipements e JOIN public.categories c ON c.id = e.categorie_id
+           WHERE c.nom = '${flotte}' AND c.scope = 'parc' GROUP BY e.local_id) s
+         JOIN public.locaux l ON l.id = s.local_id`,
+      )
+    await parcours(
+      'deployer_equipements (lieux créés)',
+      'deployer_equipements',
+      { flotte, batiment: bat, niveau: niveau4, type_lieu: 'Chambre standard' },
+      {
+        apercu: (r) =>
+          r.a_creer === 2 && r.exemples?.[0]?.caracteristiques?.Repère === c401,
+        lire: parLieu,
+        attendu: `${c401}=1,${c402}=1`,
+      },
+    )
+
+    // 4. modifier_equipements : date de mise en service des deux.
+    const dates = () =>
+      etat(
+        `SELECT coalesce(string_agg(coalesce(e.date_mise_en_service::text, '-'), ',' ORDER BY e.date_mise_en_service), '')
+         FROM public.equipements e JOIN public.categories c ON c.id = e.categorie_id
+         WHERE c.nom = '${flotte}' AND c.scope = 'parc'`,
+      )
+    await parcours(
+      'modifier_equipements',
+      'modifier_equipements',
+      {
+        flotte,
+        batiment: bat,
+        niveau: niveau4,
+        date_mise_en_service: '2026-11-02',
+      },
+      {
+        apercu: (r) =>
+          r.equipements === 2 &&
+          r.modifications?.date_mise_en_service === '02/11/2026 (S45)' &&
+          r.exemples?.[0]?.apres?.date_mise_en_service === '02/11/2026 (S45)',
+        lire: dates,
+        attendu: '2026-11-02,2026-11-02',
+      },
+    )
+
+    // 5. deplacer_equipements : celui de la 402 vers la réserve, par les noms.
+    const id402 = etat(
+      `SELECT l.id FROM public.locaux l JOIN public.niveaux n ON n.id = l.niveau_id
+       WHERE l.nom = '${c402}' AND n.nom = '${niveau4}'`,
+    )
+    await parcours(
+      'deplacer_equipements',
+      'deplacer_equipements',
+      { flotte, local_ids: [id402], vers_lieu: reserve, vers_niveau: niveau4 },
+      {
+        apercu: (r) =>
+          r.a_deplacer === 1 &&
+          r.exemples?.[0]?.de === c402 &&
+          r.exemples[0].vers === reserve,
+        lire: parLieu,
+        attendu: `${c401}=1,${reserve}=1`,
+      },
+    )
+
+    // 6. rattacher_plan : ajouter puis retirer du plan de maintenance du site.
+    const plan = `Contrôle détecteurs cl ${x}`
+    const rattaches = () =>
+      etat(
+        `SELECT count(*) FROM public.gammes_equipements ge
+         JOIN public.gammes g ON g.id = ge.gamme_id JOIN public.equipements e ON e.id = ge.equipement_id
+         JOIN public.categories c ON c.id = e.categorie_id
+         WHERE g.nom = '${plan}' AND c.nom = '${flotte}' AND c.scope = 'parc'`,
+      )
+    await parcours(
+      'rattacher_plan (ajouter)',
+      'rattacher_plan',
+      { plan_maintenance: plan, action: 'ajouter', flotte },
+      {
+        apercu: (r) => r.a_rattacher === 2 && r.plan_maintenance === plan,
+        lire: rattaches,
+        attendu: '2',
+      },
+    )
+    await parcours(
+      'rattacher_plan (retirer)',
+      'rattacher_plan',
+      {
+        plan_maintenance: plan,
+        action: 'retirer',
+        flotte,
+        batiment: bat,
+        niveau: niveau4,
+      },
+      {
+        apercu: (r) => r.a_retirer === 2,
+        lire: rattaches,
+        attendu: '0',
+      },
+    )
+
+    // 7. supprimer_equipements : toute la flotte (sans historique).
+    await parcours(
+      'supprimer_equipements',
+      'supprimer_equipements',
+      { flotte, toute_la_flotte: true },
+      {
+        apercu: (r) => r.a_supprimer === 2 && r.conserves_nombre === 0,
+        lire: parLieu,
+        attendu: '',
+      },
+    )
   } finally {
     enAdmin(
       `UPDATE public.users SET acces_ia_ecriture = false, acces_ia = false WHERE id IN (SELECT id FROM auth.users WHERE email IN (${ids}));`,

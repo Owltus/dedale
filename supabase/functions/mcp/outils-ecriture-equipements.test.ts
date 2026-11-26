@@ -9,6 +9,7 @@ import { ErreurOutil } from './commun.ts'
 import {
   choisir,
   PLAFONDS,
+  pluriel,
   presenterDeploiement,
   presenterModeleCree,
   selection,
@@ -186,6 +187,10 @@ Deno.test('choisir : égalité, puis seul nom qui contient, sinon refus listant 
   assertMatch(ambigu.message, /ambigu : 3 flottes correspondent/)
   const aucun = assertThrows(() => choisir('flotte', 'BAES', noms, id), ErreurOutil)
   assertMatch(aucun.message, /Aucun\(e\) flotte.*Possibles : « Détecteur »/)
+  const lieux = assertThrows(() => choisir('lieu', 'r', ['Réserve', 'Remise'], id), ErreurOutil)
+  assertMatch(lieux.message, /2 lieux correspondent/)
+  assertEquals(pluriel('plan de maintenance'), 'plans de maintenance')
+  assertEquals(pluriel('niveau'), 'niveaux')
 })
 
 // ─── Rendu ───────────────────────────────────────────────────────────────────
@@ -333,4 +338,39 @@ Deno.test('gestes du parc (faux client) : lecture seule et rôle sans droit refu
     }
     assert(!appels.some((a) => a.nom.startsWith('claude_')), 'aucun geste tenté')
   }
+})
+
+Deno.test('creer_modele_equipement (faux client) : commun réservé à l’admin et au manager, sans site ni flotte', async () => {
+  const categories = [
+    { id: ID(30), nom: 'Incendie', site_id: null },
+    { id: ID(31), nom: 'Incendie', site_id: SITE_A.id },
+  ]
+  const tech = fauxContexte({ categories }, {})
+  const r1 = await executerOutil(
+    'creer_modele_equipement',
+    { commun: true, nom: 'DO-200', categorie: 'Incendie' },
+    tech.ctx,
+  )
+  assertEquals(r1.isError, true)
+  assertMatch(r1.content[0].text, /réservé aux administrateurs et managers/)
+  assert(!tech.appels.some((a) => a.nom.startsWith('claude_')), 'aucun geste tenté')
+
+  const { ctx, appels } = fauxContexte({ categories }, {
+    current_role: 'manager',
+    claude_creer_modele_equipement: { code_confirmation: 'ABCD1234', modele: { nom: 'DO-200' } },
+  })
+  const r2 = await executerOutil('creer_modele_equipement', {
+    commun: true,
+    nom: 'DO-200',
+    categorie: 'incendie',
+    categorie_parc: 'Sécurité incendie',
+  }, ctx)
+  assertMatch(r2.content[0].text, /ni site, ni flotte/)
+  const r3 = await executerOutil('creer_modele_equipement', { commun: true, nom: 'DO-200', categorie: 'incendie' }, ctx)
+  assertEquals(r3.isError, undefined, r3.content[0].text)
+  const p = appels.find((a) => a.nom === 'claude_creer_modele_equipement')!.params as Record<string, unknown>
+  assertEquals(p.p_site_id, null)
+  assertEquals(p.p_categorie_id, ID(30), 'catégorie du commun')
+  assertEquals(p.p_creer_flotte, false)
+  assertEquals(p.p_flotte_parent_id, null)
 })

@@ -1,5 +1,9 @@
 // Outils d'ÉCRITURE du connecteur Claude — parc d'équipements (étape 7 du plan
-// fiche-lieu-et-deploiement-equipements, migration 186).
+// fiche-lieu-et-deploiement-equipements, migration 186 ; commun ouvert à
+// l'admin et au manager en 188). Les autres gestes du parc (installer,
+// modifier, déplacer, rattacher, supprimer) : outils-ecriture-parc.ts ; les
+// lieux : outils-ecriture-lieux.ts. Les aides de résolution exportées ici leur
+// servent.
 //
 // Même modèle que les OT (outils-ecriture.ts) : chaque outil appelle une
 // fonction SQL claude_* qui vérifie le droit (connecteur + acces_ia_ecriture),
@@ -44,7 +48,14 @@ export const PLAFONDS = {
   rang: 20,
 } as const
 
-const cle = (t: string) => t.trim().toLowerCase()
+export const cle = (t: string) => t.trim().toLowerCase()
+
+/** « lieu » → « lieux », « plan de maintenance » → « plans de maintenance ». */
+export function pluriel(quoi: string) {
+  const [tete, ...reste] = quoi.split(' ')
+  const p = /[sx]$/.test(tete) ? tete : /(au|eu)$/.test(tete) ? `${tete}x` : `${tete}s`
+  return [p, ...reste].join(' ')
+}
 
 /**
  * UN candidat par son nom : égalité (casse et espaces ignorés), sinon un seul
@@ -71,7 +82,7 @@ export function choisir<T>(
     )
   }
   throw new ErreurOutil(
-    `« ${demande.trim()} » est ambigu : ${proches.length} ${quoi}s correspondent (${
+    `« ${demande.trim()} » est ambigu : ${proches.length} ${pluriel(quoi)} correspondent (${
       liste.map((x) => `« ${x} »`).join(', ')
     }). Précise lequel.`,
   )
@@ -82,7 +93,7 @@ export function choisir<T>(
  * catégories (le demandeur), et répondrait « introuvable » au lieu de « pas le
  * droit ». Message clair seulement : la base revérifie tout (186).
  */
-export async function exigerGestesParc(ctx: Contexte) {
+export async function exigerGestesParc(ctx: Contexte): Promise<string> {
   const [{ data: role }, { data: moi }] = await Promise.all([
     ctx.supabase.rpc('current_role'),
     ctx.supabase.from('users').select('acces_ia_ecriture').eq('id', ctx.userId).maybeSingle(),
@@ -94,13 +105,23 @@ export async function exigerGestesParc(ctx: Contexte) {
   }
   if (!['admin', 'manager', 'technicien'].includes(String(role))) {
     throw new ErreurOutil(
-      'Rien n’a été enregistré. Ton rôle ne permet pas de créer, déployer ou retirer des équipements (réservé aux administrateurs, managers et techniciens de tes sites).',
+      'Rien n’a été enregistré. Ton rôle ne permet pas de créer, modifier, déployer ou retirer des lieux, des modèles ou des équipements (réservé aux administrateurs, managers et techniciens de tes sites).',
+    )
+  }
+  return String(role)
+}
+
+/** Le commun (catalogue du siège) : admin et manager seulement, comme l'appli (188). */
+export function exigerCommun(role: string) {
+  if (!['admin', 'manager'].includes(role)) {
+    throw new ErreurOutil(
+      'Rien n’a été enregistré. Le commun (catalogue du siège) est réservé aux administrateurs et managers : travaille sur le modèle de ton site, ou installe celui du commun (installer_modele).',
     )
   }
 }
 
 /** Le site d'un geste qui en vise un seul. */
-async function siteUnique(ctx: Contexte, demande: string | undefined): Promise<Site> {
+export async function siteUnique(ctx: Contexte, demande: string | undefined): Promise<Site> {
   const sites = await sitesCibles(ctx, demande)
   if (sites.length === 1) return sites[0]
   throw new ErreurOutil(
@@ -144,13 +165,17 @@ export async function resoudreGammes(ctx: Contexte, siteId: string, noms: string
 
 type CategorieLigne = { id: string; nom: string; site_id: string | null }
 
-/** Catégorie de la Bibliothèque (équipement ou mixte) du commun ou du site ; celle du site d'abord. */
-async function resoudreCategorieModele(ctx: Contexte, siteId: string, nom: string) {
-  const { data, error } = await ctx.supabase.from('categories').select('id, nom, site_id')
+/**
+ * Catégorie de la Bibliothèque (équipement ou mixte) du commun ou du site ;
+ * celle du site d'abord. siteId null = le commun seulement.
+ */
+export async function resoudreCategorieModele(ctx: Contexte, siteId: string | null, nom: string) {
+  const q = ctx.supabase.from('categories').select('id, nom, site_id')
     .in('scope', ['equipement', 'mixte']).eq('est_actif', true)
-    .or(`site_id.is.null,site_id.eq.${siteId}`).order('nom').limit(500)
+  const { data, error } = await (siteId ? q.or(`site_id.is.null,site_id.eq.${siteId}`) : q.is('site_id', null))
+    .order('nom').limit(500)
   if (error) throw error
-  const lignes = data as CategorieLigne[]
+  const lignes = (data as CategorieLigne[]).filter((c) => c.site_id === null || c.site_id === siteId)
   const exacts = lignes.filter((c) => cle(c.nom) === cle(nom))
   const duSite = exacts.filter((c) => c.site_id === siteId)
   if (exacts.length > 1 && duSite.length === 1) return duSite[0]
@@ -158,7 +183,7 @@ async function resoudreCategorieModele(ctx: Contexte, siteId: string, nom: strin
 }
 
 /** Catégorie de parc (racine) du site, où ranger la flotte. */
-async function resoudreCategorieParc(ctx: Contexte, siteId: string, nom: string) {
+export async function resoudreCategorieParc(ctx: Contexte, siteId: string, nom: string) {
   const { data, error } = await ctx.supabase.from('categories').select('id, nom, site_id')
     .eq('scope', 'parc').is('parent_id', null).eq('site_id', siteId).eq('est_actif', true)
     .order('nom').limit(500)
@@ -168,7 +193,7 @@ async function resoudreCategorieParc(ctx: Contexte, siteId: string, nom: string)
 
 // ─── Schémas ─────────────────────────────────────────────────────────────────
 
-const valeur = z.union([
+export const valeur = z.union([
   z.string().max(500),
   z.number().finite(),
   z.boolean(),
@@ -176,9 +201,9 @@ const valeur = z.union([
   z.null(),
 ])
 
-const TYPES = ['texte', 'nombre', 'date', 'oui-non', 'liste', 'double-reference'] as const
+export const TYPES = ['texte', 'nombre', 'date', 'oui-non', 'liste', 'double-reference'] as const
 
-const caracteristique = z.object({
+export const caracteristique = z.object({
   libelle: z.string().trim().min(1, 'Libellé obligatoire').max(60),
   type: z.enum(TYPES),
   unite: z.string().trim().max(20).optional(),
@@ -198,7 +223,7 @@ const caracteristique = z.object({
     })
   }
 })
-type Caracteristique = z.infer<typeof caracteristique>
+export type Caracteristique = z.infer<typeof caracteristique>
 
 /** Caractéristique → champ au format du front (src/lib/champs.ts, serializeChamps). */
 export function versChamp(c: Caracteristique) {
@@ -215,19 +240,52 @@ export function versChamp(c: Caracteristique) {
   }
 }
 
-const PROPRIETE_VALEUR = {
+export const PROPRIETE_VALEUR = {
   description:
     'Texte, nombre, oui/non (true/false), date « AAAA-MM-JJ », choix de la liste, ou { "a": "3", "b": "12" } pour une double référence',
 }
 
-const lieuxSelection = {
+/** Gabarit annoncé à Claude (miroir de `caracteristique`). */
+export const PROPRIETE_CARACTERISTIQUES = {
+  type: 'array',
+  maxItems: PLAFONDS.caracteristiques,
+  items: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['libelle', 'type'],
+    properties: {
+      libelle: {
+        type: 'string',
+        description: 'Nom de la caractéristique (60 caractères au plus), ex. « Numéro »',
+      },
+      type: { type: 'string', enum: [...TYPES] },
+      unite: { type: 'string', description: 'Pour un nombre (ex. « kW »)' },
+      options: { type: 'array', items: { type: 'string' }, description: 'Choix d’une liste (obligatoires)' },
+      parts: {
+        type: 'array',
+        items: { type: 'string' },
+        minItems: 2,
+        maxItems: 2,
+        description: 'Double référence : libellés des deux parts, ex. ["Zone", "Point"] (le 2e peut être vide)',
+      },
+      requis: { type: 'boolean', default: false, description: 'Obligatoire à la saisie' },
+      defaut: PROPRIETE_VALEUR,
+    },
+  },
+}
+
+/** Gabarit complet : 40 caractéristiques au plus, libellés uniques. */
+export const gabaritDemande = z.array(caracteristique).max(PLAFONDS.caracteristiques)
+  .refine((cs) => new Set(cs.map((c) => cle(c.libelle))).size === cs.length, 'Libellés en double')
+
+export const lieuxSelection = {
   local_ids: z.array(uuid).min(1).max(PLAFONDS.lieux).optional(),
   batiment: z.string().trim().min(1).max(120).optional(),
   niveau: z.string().trim().min(1).max(60).optional(),
   type_lieu: z.string().trim().min(1).max(120).optional(),
 }
 
-type Selection = { local_ids?: string[]; batiment?: string; niveau?: string; type_lieu?: string }
+export type Selection = { local_ids?: string[]; batiment?: string; niveau?: string; type_lieu?: string }
 
 /** Sélection des lieux telle que la base l'attend (p_selection). */
 export function selection(a: Selection): Record<string, unknown> {
@@ -239,7 +297,7 @@ export function selection(a: Selection): Record<string, unknown> {
   }
 }
 
-function controlerSelection(a: Selection, ctx: z.RefinementCtx) {
+export function controlerSelection(a: Selection, ctx: z.RefinementCtx) {
   if (!a.local_ids === !a.batiment) {
     ctx.addIssue({
       code: 'custom',
@@ -283,6 +341,8 @@ export function presenterDeploiement(r: Record<string, unknown>) {
 
 const APRES_MODELE =
   'Résume à la personne le modèle et la flotte créés. Pour poser des équipements de cette flotte dans des lieux : deployer_equipements (aperçu d’abord).'
+const APRES_MODELE_COMMUN =
+  'Résume à la personne le modèle créé dans le commun. Pour s’en servir sur un site : installer_modele (copie indépendante, avec sa flotte).'
 const APRES_DEPLOIEMENT =
   'Résume à la personne ce qui a été créé (nombre par bâtiment et niveau, plans de maintenance, opérations ajoutées aux OT ouverts). Si elle se ravise, propose annuler_deploiement (rang 1 = ce déploiement).'
 const APRES_ANNULATION = 'Résume à la personne ce qui a été supprimé et ce qui a été gardé (avec les raisons).'
@@ -294,15 +354,24 @@ export const OUTILS_ECRITURE_EQUIPEMENTS: Outil[] = [
     name: 'creer_modele_equipement',
     title: 'Créer un modèle d’équipement (et sa flotte)',
     description:
-      'Crée un modèle d’équipement DU SITE dans la Bibliothèque (jamais dans le commun) : nom, catégorie de la Bibliothèque, description, caractéristiques à renseigner sur chaque équipement (gabarit). ' +
-      'Par défaut crée aussi sa FLOTTE (sous-catégorie de parc qui recopie le modèle, sans lien) sous une catégorie de parc du site, prête à être déployée (deployer_equipements). ' +
-      'Avant : lire la Bibliothèque (outil bibliotheque) — si le commun a déjà ce modèle, proposer de l’installer depuis l’application plutôt que d’en créer un — et les flottes (outil flottes). Aperçu d’abord, puis enregistrement après accord.',
+      'Crée un modèle d’équipement dans la Bibliothèque : nom, catégorie de la Bibliothèque, description, caractéristiques à renseigner sur chaque équipement (gabarit). ' +
+      'Sur UN site (par défaut), crée aussi sa FLOTTE (sous-catégorie de parc qui recopie le modèle, sans lien) sous une catégorie de parc du site, prête à être déployée (deployer_equipements). ' +
+      'commun=true : modèle du COMMUN (catalogue du siège, sans flotte ni site), réservé aux administrateurs et managers. ' +
+      'Avant : lire la Bibliothèque (outil bibliotheque) — si le commun a déjà ce modèle, proposer plutôt installer_modele — et les flottes (outil flottes). Aperçu d’abord, puis enregistrement après accord.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
       required: ['nom', 'categorie'],
       properties: {
-        site: { type: 'string', description: 'Nom du site (obligatoire si la personne en a plusieurs)' },
+        site: {
+          type: 'string',
+          description: 'Nom du site (obligatoire si la personne en a plusieurs ; absent avec commun)',
+        },
+        commun: {
+          type: 'boolean',
+          default: false,
+          description: 'true = modèle du commun (admin et manager seulement), sans flotte : un site l’installe ensuite',
+        },
         nom: { type: 'string', description: 'Nom du modèle, et de sa flotte (ex. « Détecteur optique DO-200 »)' },
         categorie: {
           type: 'string',
@@ -310,33 +379,9 @@ export const OUTILS_ECRITURE_EQUIPEMENTS: Outil[] = [
         },
         description: { type: 'string', description: 'Facultative, 2000 caractères au plus' },
         caracteristiques: {
-          type: 'array',
-          maxItems: PLAFONDS.caracteristiques,
+          ...PROPRIETE_CARACTERISTIQUES,
           description:
             'Gabarit : ce qu’on renseigne sur chaque équipement. Mêmes noms que le gabarit lu par bibliotheque.',
-          items: {
-            type: 'object',
-            additionalProperties: false,
-            required: ['libelle', 'type'],
-            properties: {
-              libelle: {
-                type: 'string',
-                description: 'Nom de la caractéristique (60 caractères au plus), ex. « Numéro »',
-              },
-              type: { type: 'string', enum: [...TYPES] },
-              unite: { type: 'string', description: 'Pour un nombre (ex. « kW »)' },
-              options: { type: 'array', items: { type: 'string' }, description: 'Choix d’une liste (obligatoires)' },
-              parts: {
-                type: 'array',
-                items: { type: 'string' },
-                minItems: 2,
-                maxItems: 2,
-                description: 'Double référence : libellés des deux parts, ex. ["Zone", "Point"] (le 2e peut être vide)',
-              },
-              requis: { type: 'boolean', default: false, description: 'Obligatoire à la saisie' },
-              defaut: PROPRIETE_VALEUR,
-            },
-          },
         },
         creer_flotte: {
           type: 'boolean',
@@ -359,11 +404,11 @@ export const OUTILS_ECRITURE_EQUIPEMENTS: Outil[] = [
     annotations: ECRITURE,
     schema: z.object({
       site,
+      commun: z.boolean().default(false),
       nom: z.string().trim().min(1).max(PLAFONDS.nom),
       categorie: z.string().trim().min(1).max(120),
       description: z.string().trim().max(PLAFONDS.description).optional(),
-      caracteristiques: z.array(caracteristique).max(PLAFONDS.caracteristiques).default([])
-        .refine((cs) => new Set(cs.map((c) => cle(c.libelle))).size === cs.length, 'Libellés en double'),
+      caracteristiques: gabaritDemande.default([]),
       creer_flotte: z.boolean().default(true),
       categorie_parc: z.string().trim().min(1).max(120).optional(),
       valeur_principale: z.string().trim().min(1).max(60).optional(),
@@ -373,6 +418,7 @@ export const OUTILS_ECRITURE_EQUIPEMENTS: Outil[] = [
     run: async (
       a: {
         site?: string
+        commun: boolean
         nom: string
         categorie: string
         description?: string
@@ -385,7 +431,35 @@ export const OUTILS_ECRITURE_EQUIPEMENTS: Outil[] = [
       },
       ctx: Contexte,
     ) => {
-      await exigerGestesParc(ctx)
+      const role = await exigerGestesParc(ctx)
+      if (a.commun) {
+        exigerCommun(role)
+        if (a.site || a.categorie_parc || a.valeur_principale) {
+          throw new ErreurOutil(
+            'Un modèle du commun n’a ni site, ni flotte, ni valeur principale : crée-le sans eux, puis installe-le sur le site avec sa flotte (installer_modele).',
+          )
+        }
+        const catCommun = await resoudreCategorieModele(ctx, null, a.categorie)
+        const r = await geste(
+          ctx,
+          'claude_creer_modele_equipement',
+          {
+            p_site_id: null,
+            p_nom: a.nom,
+            p_categorie_id: catCommun.id,
+            p_description: a.description ?? null,
+            p_champs: a.caracteristiques.map(versChamp),
+            p_creer_flotte: false,
+            p_flotte_parent_id: null,
+            p_valeur_principale: null,
+            p_appliquer: a.appliquer,
+            p_code: a.code ?? null,
+          },
+          a.appliquer,
+          APRES_MODELE_COMMUN,
+        )
+        return presenterModeleCree(r)
+      }
       const s = await siteUnique(ctx, a.site)
       const cat = await resoudreCategorieModele(ctx, s.id, a.categorie)
       if (a.creer_flotte && !a.categorie_parc) {
@@ -519,7 +593,7 @@ export const OUTILS_ECRITURE_EQUIPEMENTS: Outil[] = [
     title: 'Annuler un déploiement d’équipements',
     description:
       'Défait un déploiement en masse récent d’une flotte : supprime les équipements qu’il a posés et qui n’ont encore aucun historique (opérations saisies, documents, DI, travaux, événements, observations) ; ceux qui en ont un sont gardés et listés. ' +
-      'rang 1 = le déploiement le plus récent de la flotte (outil flottes, deploiements_recents, dans l’ordre). C’est la SEULE suppression d’équipements ouverte à Claude. Aperçu d’abord, puis enregistrement après accord.',
+      'rang 1 = le déploiement le plus récent de la flotte (outil flottes, deploiements_recents, dans l’ordre). Pour retirer des équipements qui ne viennent pas d’un déploiement récent : supprimer_equipements. Aperçu d’abord, puis enregistrement après accord.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
