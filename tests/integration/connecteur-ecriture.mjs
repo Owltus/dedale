@@ -14,7 +14,7 @@
 //   - n'écrivent rien en aperçu, et exigent le code de l'aperçu : code faux,
 //     rejoué ou PÉRIMÉ (un équipement apparu dans la flotte entre l'aperçu et
 //     l'application) refusé, rien d'écrit ;
-//   - créent un modèle DU SITE au format du front ({ champs: [...] }, normalisé)
+//   - créent un modèle DU SITE (le commun : voir connecteur-parc-lieux.mjs) au format du front ({ champs: [...] }, normalisé)
 //     et sa flotte qui le RECOPIE sans lien (modele_equipement_id NULL,
 //     gabarit égal à celui du modèle) ; refusent un doublon de nom ;
 //   - résolvent les lieux par leurs noms (bâtiment, niveau, type de lieu),
@@ -681,9 +681,11 @@ async function main() {
       const avant = etat(t)
       for (const [nom, params, motif] of [
         [
-          'modèle du commun (site absent)',
+          // 188 : le commun est ouvert au manager (connecteur-parc-lieux.mjs),
+          // mais jamais avec une catégorie d'un site.
+          'modèle du commun avec une catégorie du site',
           { p_site_id: null },
-          /jamais dans le commun/,
+          /pas du commun/,
         ],
         ['site B', { p_site_id: SEMIS.B.site }, /pas dans tes sites/],
         [

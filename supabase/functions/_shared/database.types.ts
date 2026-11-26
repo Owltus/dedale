@@ -4188,6 +4188,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      appliquer_valeurs_champs: {
+        Args: { p_champs: Json; p_quoi: string; p_valeurs: Json }
+        Returns: Json
+      }
       can_access_contrat: { Args: { p_contrat_id: string }; Returns: boolean }
       can_access_equipement: {
         Args: { p_equipement_id: string }
@@ -4199,6 +4203,10 @@ export type Database = {
       can_access_prestataire: {
         Args: { p_prestataire_id: string }
         Returns: boolean
+      }
+      champs_depuis_gabarit: {
+        Args: { p_gabarit: Json }
+        Returns: Json
       }
       choisir_par_nom: {
         Args: { p_candidats: Json; p_demande: string; p_quoi: string }
@@ -4293,6 +4301,15 @@ export type Database = {
         }
         Returns: Json
       }
+      claude_creer_lieux: {
+        Args: {
+          p_appliquer?: boolean
+          p_code?: string
+          p_lieux: Json
+          p_site_id: string
+        }
+        Returns: Json
+      }
       claude_creer_modele_equipement: {
         Args: {
           p_appliquer?: boolean
@@ -4305,6 +4322,18 @@ export type Database = {
           p_nom: string
           p_site_id: string
           p_valeur_principale?: string
+        }
+        Returns: Json
+      }
+      claude_deplacer_equipements: {
+        Args: {
+          p_appliquer?: boolean
+          p_autoriser_doublon?: boolean
+          p_code?: string
+          p_correspondances?: Json
+          p_flotte_id: string
+          p_selection?: Json
+          p_vers_local_id?: string
         }
         Returns: Json
       }
@@ -4324,6 +4353,19 @@ export type Database = {
         Args: { p_limite?: number; p_local_id: string }
         Returns: Json
       }
+      claude_installer_modele_equipement: {
+        Args: {
+          p_appliquer?: boolean
+          p_code?: string
+          p_creer_flotte?: boolean
+          p_flotte_parent_id?: string
+          p_modele_id: string
+          p_nom_flotte?: string
+          p_site_id: string
+          p_valeur_principale?: string
+        }
+        Returns: Json
+      }
       claude_modifier_demande: {
         Args: {
           p_appliquer?: boolean
@@ -4332,6 +4374,16 @@ export type Database = {
           p_di_id: string
           p_equipement_ids?: string[]
           p_local_id?: string
+        }
+        Returns: Json
+      }
+      claude_modifier_equipements: {
+        Args: {
+          p_appliquer?: boolean
+          p_code?: string
+          p_flotte_id: string
+          p_modifs: Json
+          p_selection: Json
         }
         Returns: Json
       }
@@ -4349,6 +4401,40 @@ export type Database = {
         }
         Returns: Json
       }
+      claude_modifier_flotte: {
+        Args: {
+          p_appliquer?: boolean
+          p_champs?: Json
+          p_code?: string
+          p_description?: string
+          p_flotte_id: string
+          p_nom?: string
+          p_valeur_principale?: string
+        }
+        Returns: Json
+      }
+      claude_modifier_lieux: {
+        Args: {
+          p_appliquer?: boolean
+          p_code?: string
+          p_modifs: Json
+          p_selection: Json
+          p_site_id: string
+        }
+        Returns: Json
+      }
+      claude_modifier_modele_equipement: {
+        Args: {
+          p_actif?: boolean
+          p_appliquer?: boolean
+          p_champs?: Json
+          p_code?: string
+          p_description?: string
+          p_modele_id: string
+          p_nom?: string
+        }
+        Returns: Json
+      }
       claude_prendre_en_charge_demande: {
         Args: { p_appliquer?: boolean; p_code?: string; p_di_id: string }
         Returns: Json
@@ -4359,6 +4445,17 @@ export type Database = {
           p_code?: string
           p_id: string
           p_type: string
+        }
+        Returns: Json
+      }
+      claude_rattacher_equipements_gamme: {
+        Args: {
+          p_action?: string
+          p_appliquer?: boolean
+          p_code?: string
+          p_flotte_id: string
+          p_gamme_id: string
+          p_selection?: Json
         }
         Returns: Json
       }
@@ -4410,6 +4507,15 @@ export type Database = {
           p_code?: string
           p_ot_id: string
           p_saisies: Json
+        }
+        Returns: Json
+      }
+      claude_supprimer_equipements: {
+        Args: {
+          p_appliquer?: boolean
+          p_code?: string
+          p_flotte_id: string
+          p_selection?: Json
         }
         Returns: Json
       }
@@ -4737,11 +4843,19 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      equipement_en_clair: {
+        Args: { p_equipement_id: string }
+        Returns: Json
+      }
       equipements_attendus: {
         Args: { p_gamme_id: string }
         Returns: {
           equipement_id: string
         }[]
+      }
+      equipements_selection: {
+        Args: { p_flotte_id: string; p_selection: Json }
+        Returns: Json
       }
       evenements_du_lieu: {
         Args: {
@@ -4951,6 +5065,21 @@ export type Database = {
       }
       get_user_telephone: { Args: { p_user_id: string }; Returns: string }
       has_site_access: { Args: { target_site_id: string }; Returns: boolean }
+      historique_equipement: {
+        Args: { p_equipement_id: string }
+        Returns: Json
+      }
+      installer_modele_equipement: {
+        Args: {
+          p_creer_flotte?: boolean
+          p_flotte_parent_id?: string
+          p_modele_commun_id: string
+          p_nom_flotte?: string
+          p_site_id: string
+          p_valeur_principale?: string
+        }
+        Returns: Json
+      }
       libelle_equipement: { Args: { p_equipement_id: string }; Returns: string }
       lieux_di_du_site: { Args: { p_site_id: string }; Returns: Json }
       lieux_selection_deploiement: {
@@ -5200,6 +5329,17 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      valeur_numerique_bornee: {
+        Args: {
+          p_entier?: boolean
+          p_max: number
+          p_min: number
+          p_min_exclu: boolean
+          p_quoi: string
+          p_valeur: Json
+        }
+        Returns: number
       }
       via_connecteur: { Args: never; Returns: boolean }
     }
