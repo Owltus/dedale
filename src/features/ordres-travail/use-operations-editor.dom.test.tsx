@@ -350,3 +350,90 @@ describe('useOperationsEditor — basculerGroupe (décision A5)', () => {
     expect(result.current.edits).toEqual({})
   })
 })
+
+describe('useOperationsEditor — toutValider (retour PO 27/11/2026)', () => {
+  /** Écritures observées : id, statut et date réellement envoyés. */
+  const ecritures = () =>
+    ecrire.mock.calls.map(([p]) => {
+      const e = p as EcritureOp & { id: string; dateExecution: string | null }
+      return [e.id, e.statut, e.dateExecution]
+    })
+
+  // ORACLE : chaque ligne À FAIRE part terminée à la date choisie (midi UTC,
+  // comme la saisie de ligne) ; une ligne déjà terminale et une mesure ne sont
+  // pas réécrites ; le compte affiché correspond à ce qui part.
+  it('termine les lignes à faire à la date choisie, et elles seules', async () => {
+    const mesure = op({ id: 'm' })
+    const { result } = editeurGroupe([
+      tache('a'),
+      tache('b', 'en_cours'),
+      tache('c', 'terminee'),
+      mesure,
+    ])
+    expect(result.current.aFaire).toBe(3)
+    expect(result.current.mesuresRestantes).toBe(1)
+
+    await act(async () => {
+      await result.current.toutValider('2026-11-20', 'terminee')
+    })
+
+    expect(ecritures()).toEqual([
+      ['a', 'terminee', '2026-11-20T12:00:00.000Z'],
+      ['b', 'terminee', '2026-11-20T12:00:00.000Z'],
+    ])
+    expect(rafraichir).toHaveBeenCalledTimes(1)
+  })
+
+  // ORACLE (retour PO 27/11) : un autre statut se choisit. « Non applicable »
+  // touche aussi les mesures (sans valeur, comme le sélecteur de ligne) ; une
+  // ligne déjà réglée n'est jamais réécrite.
+  it('applique le statut choisi, mesures comprises hors « Terminée »', async () => {
+    const { result } = editeurGroupe([
+      tache('a'),
+      tache('c', 'terminee'),
+      op({ id: 'm' }),
+    ])
+    await act(async () => {
+      await result.current.toutValider('2026-11-20', 'non_applicable')
+    })
+    expect(ecritures()).toEqual([
+      ['a', 'non_applicable', '2026-11-20T12:00:00.000Z'],
+      ['m', 'non_applicable', '2026-11-20T12:00:00.000Z'],
+    ])
+    const m = ecrire.mock.calls[1]![0]
+    expect(m.valeurMesuree).toBeNull()
+  })
+
+  // ORACLE : une saisie déjà en cours sur une autre ligne part avec — le geste
+  // n'efface rien de ce que le technicien a tapé.
+  it('enregistre aussi les saisies déjà en cours', async () => {
+    const mesure = op({ id: 'm' })
+    const { result } = editeurGroupe([tache('a'), mesure])
+    act(() => {
+      result.current.setEdits({
+        m: {
+          ...result.current.opEdit(mesure),
+          statut: 'terminee',
+          valeur: '4',
+        },
+      })
+    })
+    await act(async () => {
+      await result.current.toutValider('2026-11-20', 'terminee')
+    })
+    expect(ecritures().map(([id]) => id)).toEqual(['a', 'm'])
+  })
+
+  // ORACLE : lecture seule → aucune écriture, aucun compte proposé à l'écran
+  // n'y change rien.
+  it.each([
+    ['sans droit de gestion', { canManage: false }],
+    ['OT clôturé', { ot: { ...OT, statut: 'cloture' } }],
+  ])('n’écrit rien en lecture seule (%s)', async (_cas, options) => {
+    const { result } = editeurGroupe([tache('a'), tache('b')], options)
+    await act(async () => {
+      await result.current.toutValider('2026-11-20', 'terminee')
+    })
+    expect(ecrire).not.toHaveBeenCalled()
+  })
+})

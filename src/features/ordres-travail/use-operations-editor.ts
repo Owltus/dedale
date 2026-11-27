@@ -79,8 +79,11 @@ export function useOperationsEditor({
   function opEdit(op: OperationExecution): OperationEdit {
     return edits[op.id] ?? baseEdit(op)
   }
-  function isOpDirty(op: OperationExecution): boolean {
-    const e = edits[op.id]
+  function isOpDirty(
+    op: OperationExecution,
+    source: Record<string, OperationEdit> = edits,
+  ): boolean {
+    const e = source[op.id]
     if (!e) return false
     const b = baseEdit(op)
     return (
@@ -92,7 +95,7 @@ export function useOperationsEditor({
       e.dateRemplacement !== b.dateRemplacement
     )
   }
-  const dirtyOps = operations.filter(isOpDirty)
+  const dirtyOps = operations.filter((op) => isOpDirty(op))
   // Toutes les opérations seraient-elles terminales une fois les saisies en cours
   // appliquées ? Calculé UNE fois (même rendu) et réutilisé par la re-clôture auto
   // (enregistrement d'un OT rouvert) ET le bouton de finition adaptatif.
@@ -125,6 +128,14 @@ export function useOperationsEditor({
     })
   }
 
+  // « Tout valider » : le geste ne porte que sur les lignes À FAIRE (ni
+  // terminées, ni non applicables) — il ne réécrit jamais une ligne déjà réglée.
+  const aFaire = operations.filter((op) => !statutOpTerminal(opEdit(op).statut))
+  // Parmi elles, les mesures : elles ne passent pas « Terminée » sans valeur
+  // (le geste les laisse alors de côté, l'écran le dit) ; tout autre statut
+  // (non applicable, en cours, en attente) s'y applique.
+  const mesuresRestantes = aFaire.filter((op) => estMesureExecution(op)).length
+
   // Garde-fou : prévient avant de quitter la page s'il reste des saisies non
   // enregistrées — navigation interne ET retour/fermeture du navigateur
   // (beforeUnload natif). `withResolver` → on affiche notre propre modale.
@@ -142,8 +153,18 @@ export function useOperationsEditor({
     onglet === 'operations' && !savingOps && dirtyOps.length > 0,
   )
 
-  async function saveAllOps() {
-    if (dirtyOps.length === 0) return
+  function saveAllOps() {
+    return saveOps(edits)
+  }
+
+  // Enregistre les saisies de `source` (l'état courant, ou celui que
+  // `toutValider` vient de calculer, pas encore rendu).
+  async function saveOps(source: Record<string, OperationEdit>) {
+    const aEnregistrer = operations.filter((op) => isOpDirty(op, source))
+    const terminalesApres = operations.every((op) =>
+      statutOpTerminal(source[op.id]?.statut ?? op.statut),
+    )
+    if (aEnregistrer.length === 0) return
     // Lecture seule (OT verrouillé, rôle sans droit, ou session expirée) → on ne
     // tente AUCUNE écriture, quel que soit le déclencheur (bouton OU Ctrl+S). Défend
     // la fenêtre transitoire : édits résiduels après une annulation d'OT.
@@ -158,8 +179,8 @@ export function useOperationsEditor({
     // l'aperçu de conformité, pour que l'écran et l'écriture voient le même nombre.
     const numInvalide = (s: string) =>
       s.trim() !== '' && lireNombreSaisi(s) === null
-    for (const op of dirtyOps) {
-      const e = edits[op.id]!
+    for (const op of aEnregistrer) {
+      const e = source[op.id]!
       if (estMesureExecution(op) && numInvalide(e.valeur)) {
         toast.error(`Valeur mesurée invalide : ${op.nom}`)
         return
@@ -202,8 +223,8 @@ export function useOperationsEditor({
     // sœurs encore non commitées → l'OT resterait « en cours » alors que tout
     // est terminé. En série, le trigger de la dernière op voit les précédentes.
     const errors: unknown[] = []
-    for (const op of dirtyOps) {
-      const e = edits[op.id]!
+    for (const op of aEnregistrer) {
+      const e = source[op.id]!
       const valeurMesuree = estMesureExecution(op)
         ? lireNombreSaisi(e.valeur)
         : null
@@ -243,34 +264,57 @@ export function useOperationsEditor({
     setSavingOps(false)
     // Au moins une opération enregistrée : le statut de l'OT a pu changer
     // (trigger) → liste, détail, planning et opérations relus, UNE fois.
-    if (errors.length < dirtyOps.length) rafraichirOt()
+    if (errors.length < aEnregistrer.length) rafraichirOt()
     if (errors.length === 0) {
       // Calculé AVANT de vider edits. Re-clôture auto d'un OT rouvert : si
       // l'enregistrement n'a changé AUCUN statut d'opération, le trigger de clôture
       // auto (gestion_statut_ot, qui ne réagit qu'à un changement de statut) ne s'est
       // pas déclenché → un OT rouvert dont toutes les ops sont terminales resterait
       // bloqué « rouvert ». On le clôture pour matcher « j'enregistre → c'est clôturé ».
-      const aucunStatutChange = dirtyOps.every(
-        (op) => edits[op.id]?.statut === op.statut,
+      const aucunStatutChange = aEnregistrer.every(
+        (op) => source[op.id]?.statut === op.statut,
       )
       toast.success(
-        dirtyOps.length > 1
-          ? `${String(dirtyOps.length)} opérations enregistrées`
+        aEnregistrer.length > 1
+          ? `${String(aEnregistrer.length)} opérations enregistrées`
           : 'Opération enregistrée',
       )
       setEdits({})
-      // `toutesTerminalesApres` (calculé au rendu, AVANT le vidage des edits) reflète
+      // `terminalesApres` (calculé sur `source`, AVANT le vidage des edits) reflète
       // bien l'état post-enregistrement. Même mutation/toasts que la clôture manuelle.
-      if (
-        ot?.statut === 'reouvert' &&
-        aucunStatutChange &&
-        toutesTerminalesApres
-      ) {
+      if (ot?.statut === 'reouvert' && aucunStatutChange && terminalesApres) {
         onRecloturer()
       }
     } else {
       toast.error(writeErrorMessage(errors[0]))
     }
+  }
+
+  /**
+   * Passe d'un coup toutes les lignes à faire au `statut` choisi, à la date
+   * choisie (retour PO 27/11 : 54 BAES contrôlés le même jour), PUIS enregistre
+   * — le même enregistrement que le bouton : mêmes gardes, écritures en série,
+   * clôture automatique par la base si tout devient terminal. « Terminée »
+   * laisse les mesures de côté ; « Non applicable » vide leur valeur, comme le
+   * sélecteur de ligne. Les saisies déjà en cours sur d'autres lignes partent avec.
+   */
+  async function toutValider(date: string, statut: string) {
+    const cibles = aFaire.filter(
+      (op) => statut !== 'terminee' || !estMesureExecution(op),
+    )
+    if (opsReadOnly || cibles.length === 0) return
+    const suivant = { ...edits }
+    for (const op of cibles) {
+      const courant = opEdit(op)
+      suivant[op.id] = {
+        ...courant,
+        statut,
+        dateExec: date,
+        valeur: statut === 'non_applicable' ? '' : courant.valeur,
+      }
+    }
+    setEdits(suivant)
+    await saveOps(suivant)
   }
 
   return {
@@ -283,6 +327,9 @@ export function useOperationsEditor({
     toutesTerminalesApres,
     saveAllOps,
     basculerGroupe,
+    aFaire: aFaire.length,
+    mesuresRestantes,
+    toutValider,
     blocker,
   }
 }

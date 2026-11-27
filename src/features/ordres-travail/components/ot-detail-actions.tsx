@@ -1,6 +1,7 @@
 import {
   Ban,
   CheckCircle2,
+  ListChecks,
   Paperclip,
   Pencil,
   RotateCcw,
@@ -23,12 +24,15 @@ interface OtDetailActionsProps {
   dirtyCount: number
   /** Toutes les opérations seraient terminales une fois les saisies appliquées. */
   toutesTerminalesApres: boolean
+  /** Lignes à faire que « Tout valider » peut régler d'un coup. */
+  nbAFaire: number
   savingOps: boolean
   changerStatutPending: boolean
   updateDatePrevuePending: boolean
   reouvrirPending: boolean
   suppressionPending: boolean
   onSave: () => void
+  onToutValider: () => void
   onRecloturer: () => void
   onRattacherDocument: () => void
   onModifierDate: () => void
@@ -52,12 +56,14 @@ export function OtDetailActions({
   canEditOps,
   dirtyCount,
   toutesTerminalesApres,
+  nbAFaire,
   savingOps,
   changerStatutPending,
   updateDatePrevuePending,
   reouvrirPending,
   suppressionPending,
   onSave,
+  onToutValider,
   onRecloturer,
   onRattacherDocument,
   onModifierDate,
@@ -86,6 +92,17 @@ export function OtDetailActions({
       />
       {canManage && (
         <>
+          {/* « Tout valider » (retour PO 27/11/2026) : à partir de deux lignes à
+              faire — en dessous, le geste de ligne suffit. */}
+          {onglet === 'operations' && canEditOps && nbAFaire > 1 && (
+            <TooltipIconButton
+              icon={<ListChecks />}
+              label="Tout valider"
+              variant="outline"
+              disabled={savingOps}
+              onClick={onToutValider}
+            />
+          )}
           {onglet === 'operations' &&
             canEditOps &&
             (dirtyCount === 0 && (estReouvert || toutesTerminalesApres) ? (

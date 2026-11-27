@@ -26,6 +26,7 @@ import {
 } from './operation-row'
 import { OperationsGroupeEquipement } from './operations-groupe-equipement'
 import { OtDetailActions } from './ot-detail-actions'
+import { ValiderToutDialog } from './valider-tout-dialog'
 import { MotifDialog } from '@/components/common/motif-dialog'
 import { DatePrevueDialog } from './date-prevue-dialog'
 import { clesRacines } from '@/lib/cles-racines'
@@ -104,6 +105,7 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
   const [onglet, setOnglet] = useState<Onglet>('operations')
   const [annulerOpen, setAnnulerOpen] = useState(false)
   const [datePrevueOpen, setDatePrevueOpen] = useState(false)
+  const [validerToutOpen, setValiderToutOpen] = useState(false)
 
   // Opérations calculées AVANT les retours anticipés : le moteur d'édition
   // (`useOperationsEditor`) appelle `useBlocker`/`useSaveShortcut`, qui doivent
@@ -168,6 +170,9 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
     toutesTerminalesApres,
     saveAllOps,
     basculerGroupe,
+    aFaire,
+    mesuresRestantes,
+    toutValider,
     blocker,
   } = useOperationsEditor({
     ot,
@@ -400,12 +405,14 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
       canEditOps={canEditOps}
       dirtyCount={dirtyOps.length}
       toutesTerminalesApres={toutesTerminalesApres}
+      nbAFaire={aFaire}
       savingOps={savingOps}
       changerStatutPending={changerStatut.isPending}
       updateDatePrevuePending={updateDatePrevue.isPending}
       reouvrirPending={reouvrir.isPending}
       suppressionPending={suppression.pending}
       onSave={() => void saveAllOps()}
+      onToutValider={() => setValiderToutOpen(true)}
       onRecloturer={recloturer}
       onRattacherDocument={openUploadEmpty}
       onModifierDate={() => setDatePrevueOpen(true)}
@@ -559,6 +566,7 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
                     <OperationsGroupeEquipement
                       key={g.cle}
                       titre={g.titre}
+                      lieu={g.lieu}
                       detail={g.detail}
                       statuts={g.ops.map((op) => opEdit(op).statut)}
                       ouvert={groupeOuvert(g.cle)}
@@ -632,6 +640,22 @@ export function OtDetail({ otId, siteId, canManage }: OtDetailProps) {
         origine={ot.origine}
         pending={updateDatePrevue.isPending}
         onConfirm={confirmDatePrevue}
+      />
+
+      {/* Tout valider à une date (aujourd'hui par défaut) — remonté à chaque
+          ouverture (même patron que la date prévue) : la date repart du jour. */}
+      <ValiderToutDialog
+        key={validerToutOpen ? 'tout-open' : 'tout-closed'}
+        open={validerToutOpen}
+        onOpenChange={setValiderToutOpen}
+        aFaire={aFaire}
+        mesuresRestantes={mesuresRestantes}
+        pending={savingOps}
+        onConfirm={(v) => {
+          void toutValider(v.date, v.statut).then(() =>
+            setValiderToutOpen(false),
+          )
+        }}
       />
 
       {/* Suppression définitive de l'OT — même formulation que la liste. */}

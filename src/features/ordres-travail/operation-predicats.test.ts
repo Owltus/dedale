@@ -8,6 +8,7 @@ import {
   estCompteurCumulatif,
   estMesureExecution,
   grouperParEquipement,
+  prefixeCommun,
   placeholderRange,
   type OperationEdit,
   type OperationExecution,
@@ -346,6 +347,52 @@ describe('basculerStatut — le geste de ligne', () => {
   })
 })
 
+describe('prefixeCommun', () => {
+  it('coupe sur un espace, jamais au milieu d’un mot', () => {
+    expect(
+      prefixeCommun([
+        'Éclairage de secours N1-R0',
+        'Éclairage de secours N10-R0',
+      ]),
+    ).toBe('Éclairage de secours ')
+  })
+
+  it('ne vide jamais un nom', () => {
+    expect(prefixeCommun(['Climatiseur', 'Climatiseur 302'])).toBe('')
+    expect(prefixeCommun(['Climatiseur', 'Climatiseur'])).toBe('')
+  })
+
+  it('rien de commun, ou moins de deux noms : aucun préfixe', () => {
+    expect(prefixeCommun(['Climatiseur 302', 'BAES N1'])).toBe('')
+    expect(prefixeCommun(['Climatiseur 302'])).toBe('')
+    expect(prefixeCommun([])).toBe('')
+  })
+
+  // ORACLE (propriété) : chaque nom reste non vide une fois le préfixe retiré.
+  it('chaque nom garde au moins un mot', () => {
+    fc.assert(
+      fc.property(
+        fc.array(
+          fc
+            .array(fc.constantFrom('A', 'B', 'C'), {
+              minLength: 1,
+              maxLength: 4,
+            })
+            .map((m) => m.join(' ')),
+          { minLength: 2, maxLength: 6 },
+        ),
+        (noms) => {
+          const p = prefixeCommun(noms)
+          for (const n of noms) {
+            expect(n.startsWith(p)).toBe(true)
+            expect(n.slice(p.length).trim()).not.toBe('')
+          }
+        },
+      ),
+    )
+  })
+})
+
 describe('grouperParEquipement', () => {
   const clim = (id: string, equipement: string | null, chemin: string | null) =>
     op({
@@ -361,23 +408,28 @@ describe('grouperParEquipement', () => {
     expect(grouperParEquipement([op({ id: 'a' }), op({ id: 'b' })])).toBeNull()
   })
 
-  // ORACLE (A3) : ordre NUMÉRIQUE des titres — « 302 » avant « 1010 ».
-  it('trie les groupes par titre en ordre numérique', () => {
+  // ORACLE (A3) : ordre de tournée — par lieu, puis par titre, en ordre
+  // NUMÉRIQUE (« R+3 » avant « R+10 »).
+  it('trie les groupes par lieu puis par titre en ordre numérique', () => {
     const groupes = grouperParEquipement([
       clim('a', 'e1010', 'R+10 / Chambre 1010'),
       clim('b', 'e302', 'R+3 / Chambre 302'),
       clim('c', 'e45', 'R+0 / Chambre 45'),
+      clim('d', 'e10', 'R+3 / Circulation'),
+      clim('e', 'e2', 'R+3 / Circulation'),
     ])
     expect(groupes?.map((g) => g.titre)).toEqual([
-      'Chambre 45',
-      'Chambre 302',
-      'Chambre 1010',
+      'e45',
+      'e302',
+      'e2',
+      'e10',
+      'e1010',
     ])
   })
 
-  // ORACLE : la clé est l'équipement, jamais le libellé ; titre = dernier
-  // segment du chemin, chemin complet + nom en infobulle ; ordre de la requête
-  // conservé dans un groupe.
+  // ORACLE : la clé est l'équipement, jamais le libellé ; titre = NOM de
+  // l'équipement, lieu affiché dessous, chemin complet + nom en infobulle ;
+  // ordre de la requête conservé dans un groupe.
   it('regroupe par equipement_id en gardant l’ordre de la requête', () => {
     const groupes = grouperParEquipement([
       clim('a', 'e302', 'R+3 / Chambre 302'),
@@ -387,10 +439,61 @@ describe('grouperParEquipement', () => {
     expect(groupes).toHaveLength(2)
     expect(groupes?.[0]).toMatchObject({
       cle: 'e302',
-      titre: 'Chambre 302',
+      titre: 'e302',
+      lieu: 'R+3 / Chambre 302',
       detail: 'R+3 / Chambre 302 — Climatiseur e302',
     })
     expect(groupes?.[0]?.ops.map((o) => o.id)).toEqual(['a', 'c'])
+  })
+
+  // ORACLE (retour PO 27/11) : quatre BAES dans quatre « Circulation » se
+  // distinguent par leur nom, pas par le lieu.
+  it('distingue des équipements dont les lieux portent le même nom', () => {
+    const groupes = grouperParEquipement([
+      clim('a', 'N1-R2', 'R+2 / Circulation'),
+      clim('b', 'N1-R3', 'R+3 / Circulation'),
+    ])
+    expect(groupes?.map((g) => [g.titre, g.lieu])).toEqual([
+      ['N1-R2', 'R+2 / Circulation'],
+      ['N1-R3', 'R+3 / Circulation'],
+    ])
+  })
+
+  // ORACLE (retour PO 27/11) : l'identifiant seul — le nom de famille commun
+  // à tous les équipements est retiré, le nom complet reste en infobulle.
+  it('retire le nom de famille commun, garde le nom complet en infobulle', () => {
+    const baes = (id: string, nom: string) =>
+      op({
+        id,
+        equipement_id: id,
+        nom_equipement: nom,
+        nom_localisation: 'R+2 / Circulation',
+      })
+    const groupes = grouperParEquipement([
+      baes('a', 'Éclairage de secours N1-R2'),
+      baes('b', 'Éclairage de secours N10-R2'),
+    ])
+    expect(groupes?.map((g) => g.titre)).toEqual(['N1-R2', 'N10-R2'])
+    expect(groupes?.[0]?.detail).toBe(
+      'R+2 / Circulation — Éclairage de secours N1-R2',
+    )
+  })
+
+  // ORACLE : un OT mixte (deux familles) garde les noms complets ; un seul
+  // équipement aussi (rien à comparer).
+  it('garde les noms complets d’un OT mixte ou à un seul équipement', () => {
+    const mixte = grouperParEquipement([
+      op({ id: 'a', equipement_id: 'a', nom_equipement: 'Climatiseur 302' }),
+      op({ id: 'b', equipement_id: 'b', nom_equipement: 'BAES N1-R3' }),
+    ])
+    expect(mixte?.map((g) => g.titre)).toEqual([
+      'BAES N1-R3',
+      'Climatiseur 302',
+    ])
+    const seul = grouperParEquipement([
+      op({ id: 'a', equipement_id: 'a', nom_equipement: 'Climatiseur 302' }),
+    ])
+    expect(seul?.[0]?.titre).toBe('Climatiseur 302')
   })
 
   it('deux équipements au même libellé restent deux groupes', () => {
@@ -401,10 +504,23 @@ describe('grouperParEquipement', () => {
     expect(groupes?.map((g) => g.cle)).toEqual(['e1', 'e2'])
   })
 
-  // ORACLE : sans localisation, le nom de l'équipement sert de titre.
-  it('retombe sur le nom de l’équipement sans localisation', () => {
+  // ORACLE : sans localisation, le nom seul ; sans nom, le dernier segment du
+  // lieu sert de titre (et n'est pas répété dessous).
+  it('retombe sur le nom seul sans localisation', () => {
     const groupes = grouperParEquipement([clim('a', 'e9', null)])
-    expect(groupes?.[0]?.titre).toBe('Climatiseur e9')
+    expect(groupes?.[0]).toMatchObject({ titre: 'Climatiseur e9', lieu: null })
+  })
+
+  it('retombe sur le lieu quand l’équipement n’a pas de nom', () => {
+    const groupes = grouperParEquipement([
+      op({
+        id: 'a',
+        equipement_id: 'e1',
+        nom_equipement: null,
+        nom_localisation: 'R+3 / Chambre 302',
+      }),
+    ])
+    expect(groupes?.[0]).toMatchObject({ titre: 'Chambre 302', lieu: null })
   })
 
   // ORACLE : dans un OT mixte, les lignes sans équipement forment « Général »,

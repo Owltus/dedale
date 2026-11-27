@@ -8,8 +8,10 @@ import { listStack } from '@/lib/responsive'
 import { cn } from '@/lib/utils'
 
 interface OperationsGroupeEquipementProps {
-  /** Libellé court de l'en-tête (ex. « Chambre 302 »). */
+  /** Libellé de l'en-tête : le nom de l'équipement (ex. « Climatiseur 302 »). */
   titre: string
+  /** Emplacement affiché sous le titre (ex. « R+3 / Chambre 302 »). */
+  lieu: string | null
   /** Chemin complet + nom de l'équipement, en infobulle. */
   detail: string | null
   /** Statuts COURANTS (saisies comprises) des lignes du groupe. */
@@ -48,6 +50,7 @@ function statutDuGroupe(statuts: string[]): string {
  */
 export function OperationsGroupeEquipement({
   titre,
+  lieu,
   detail,
   statuts,
   ouvert,
@@ -118,9 +121,14 @@ export function OperationsGroupeEquipement({
             )}
           />
         </button>
-        <p id={titreId} className="min-w-0 flex-1 truncate text-sm font-medium">
-          {titre}
-        </p>
+        <div className="min-w-0 flex-1">
+          <p id={titreId} className="truncate text-sm font-medium">
+            {titre}
+          </p>
+          {lieu && (
+            <p className="truncate text-xs text-muted-foreground">{lieu}</p>
+          )}
+        </div>
         <span
           className="shrink-0 text-xs text-muted-foreground tabular-nums"
           aria-label={`${String(terminees)} opération${terminees > 1 ? 's' : ''} terminée${terminees > 1 ? 's' : ''} sur ${String(total)}`}
