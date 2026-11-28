@@ -7,6 +7,7 @@
 //   - jamais de chemin de stockage ni de contenu de fichier : au plus le nom ;
 //   - textes de recherche nettoyés avant d'entrer dans un filtre PostgREST.
 
+import { avecRegles } from './consignes.ts'
 import { z } from 'npm:zod@3.23.8'
 import {
   ajouterJours,
@@ -745,7 +746,8 @@ const TOUS_LES_OUTILS: Outil[] = [
   ...OUTILS_ECRITURE_PARC,
   ...OUTILS_ECRITURE_LIEUX,
 ]
-export const OUTILS = TOUS_LES_OUTILS
+/** Ce que Claude reçoit : chaque description complétée de ses règles métier (consignes.ts). */
+export const OUTILS: Outil[] = TOUS_LES_OUTILS.map((o) => ({ ...o, description: avecRegles(o.name, o.description) }))
 
 function texte(t: string, isError = false): Resultat {
   return { content: [{ type: 'text', text: t }], ...(isError ? { isError: true } : {}) }
